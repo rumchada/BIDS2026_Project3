@@ -1,0 +1,751 @@
+---
+title: "Data_Acquisition"
+output: html_document
+date: "2026-09-21"
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Library-Readin
+
+Notes:
+
+(09/24/26): I forgot that the clinical data is also needed
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(ggplot2)
+library(hdf5r)
+library(harmony)
+#library(BPCells)
+library(SeuratWrappers)
+library(GEOquery)
+```
+
+[hackathon project](https://github.com/mitreac/BIDS2026_projects)
+
+Requirements for Data Acqusition:
+
+Prostate Cancer or Adj Normal (Ideally split even)
+
+Paired with Clinical Data
+
+During Acquisition, Normal and Tumor is required for finding low and
+high risk profiles Dataset will have to consist of 6PRAD-SC (preferably
+10x Chromium) 3Normal-Adj, and 3PRAD datasets. Integrate? Yes
+integration via CCA would be suffient to compare transcriptional markers
+and hopefully have a gradient of cellullar change from Low to High risk
+factors. However within the each meta dat source columns will be very
+important and I may have to import this on the windows PC.
+
+Status Update (09/26/2026): There is a lack of clinical information on
+the Single-Cell RNAseq side (GEOACCESSION, TISCH,, BROAD). However there
+is an abundance on the bulkRNA-SEQ side. Which means how can I utilize
+the abundance of clinical data with PRAD bulkRNA-Seq data in tandem with
+the resolution of single cell PRAD data?
+
+Goal: Finding a trend between immune cell landscape and clinical status
+using scRNASeq and bulkRNA-Seq data
+
+Papers that could help:
+
+[https://pmc.ncbi.nlm.nih.gov/articles/PMC12161480](https://pmc.ncbi.nlm.nih.gov/articles/PMC12161480/?utm_source=chatgpt.com){.uri}
+
+<https://pubmed.ncbi.nlm.nih.gov/34936871/>
+
+<https://pmc.ncbi.nlm.nih.gov/articles/PMC11369112/?utm_source=chatgpt.com>
+
+# Datasets Available
+
+### PRAD Cancer Sample
+
+- [GSE141445 (Chen et. al., 2021)
+  (PRAD)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445)
+
+- [GSE176031 (Sang, H 2021)
+  (PRAD)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031)
+
+- [GSE150692(Crowly, L.,
+  2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692)(PRAD)
+
+### Paired/ Adj.N Datasets
+
+- [EGAD01008340 (Tuang et. al, 2021)
+  (Paird-PRAD-Adj.N)](https://ega-archive.org/datasets/EGAD00001008340)
+
+- [GSE181294(Chen et. al., 2023)
+  (Paird-PRAD-Adj.N)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294)
+
+- [GSE1201716(Henry et. al., 2018)
+  (Adj.N)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716)
+
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+|              | Author(s)                                                            | Organism(s) | Condition(s) | Cell Cnt | Lib Prep  | Availability  | Clinical     |
+|              |                                                                      |             |              |          | Protocol  | Format        | Data         |
++==============+======================================================================+=============+==============+==========+===========+===============+==============+
+| GSE141445    | [(Chen et. al.,                                                      | Human       | PRAD         | 36,424   | 10x       | series_matrix | available,   |
+|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |             |              |          | Chromium  |               | but sparse   |
+|              |                                                                      |             |              |          | V2        |               |              |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE176031    | [(Song, H                                                            | Human       | Paired       | 21,743   | Seq-Well  | series_matrix | available,   |
+|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |             | (AdjNorm +   |          |           |               | but sparse   |
+|              |                                                                      |             | PRAD)        |          |           |               | and          |
+|              |                                                                      |             |              |          |           |               | inconsistent |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE150692    | [(Crowley,                                                           | Human / Mus | PRAD         |          | Chromium  | series_matrix | sparse but   |
+|              | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) | Musculus    |              |          | Single    |               | available    |
+|              |                                                                      |             |              |          | Cell 5’   |               |              |
+|              |                                                                      | "orthotopic |              |          | Kit       |               | only 1 out   |
+|              |                                                                      | 6694c2      |              |          |           |               | of three has |
+|              |                                                                      | pancreatic  |              |          | DO NOT    |               | useful       |
+|              |                                                                      | tumors"     |              |          | USE       |               | clinical     |
+|              |                                                                      |             |              |          |           |               | data         |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| EGAD01008340 | [(Tuang et. al,                                                      | Human       | Paired (PRAD |          |           | .fast_files   | not          |
+|              | 2021)](https://ega-archive.org/datasets/EGAD00001008340)             |             | / N. Adj)    |          |           |               | available    |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE181294    | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human       | Paired (PRAD |          | slide-seq | series matrix | available:   |
+|              | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |             | / N. Adj)    |          |           |               |              |
+|              |                                                                      |             |              |          |           |               | condition,   |
+|              |                                                                      |             |              |          |           |               | age,         |
+|              |                                                                      |             |              |          |           |               | gleason,     |
+|              |                                                                      |             |              |          |           |               | grade,       |
+|              |                                                                      |             |              |          |           |               | tissue       |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE120716    | [(Henry et. al.,                                                     | Human       | N. Adj       |          |           | series matrix |              |
+|              | 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716) |             |              |          |           | file          |              |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+
+# GSE141445/Chen, O Download
+
+The 13 prostate tumor samples used in this study were collected from
+patients who had undergone radical prostatectomy at Shanghai Changhai
+Hospital. Single cell RNA sequencing was performed with 10XGenomics.
+
+MetaData Columns: (orig.ident, sample_title, disease state, patientID
+(if possible))
+
+Seq-Well S\^3 protocol
+
+```{r}
+library(GEOquery)
+#enter in GSE141445
+#read in the whole count matrices and meta data
+
+gse_141445 <- getGEO("GSE141445", GSEMatrix = TRUE)
+
+#divide the ExpressionSet into the expression matrix and meta data
+
+gse_141445 <- gse_141445[[1]]
+
+#expression matrix
+
+expr_141445 <- exprs(gse_141445)
+
+#meta-data
+meta_141445 <- pData(gse_141445)
+
+#showing first five rows of the meta-data and the expression samples
+head(expr_141445, n = 5)
+head(meta_141445, n = 5)
+#download the data into the data directory
+getGEOSuppFiles("GSE141445")
+```
+
+```{r}
+meta_141445
+```
+
+```{r, inlcude=FALSE, warning=FALSE}
+library(glue)
+dir <- "GSE141445"
+filename <- "GSM4203181_data.raw.matrix.txt.gz"
+
+if (!file.exists(dir)) {
+  dir.create(dir, showWarnings = FALSE)
+}
+# Huge Reason why I am using this instead of regular GEOquery
+# the GSEXXXXX_RAW.tar that came form GEO,query only comes with
+#
+system(glue(
+  "if [ ! -f ./{dir}/{filename} ]; then ",
+  "wget -P ./{dir}/ ",
+  "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4203nnn/GSM4203181/suppl/",
+  "{filename}; ",
+  "fi"
+))
+```
+
+### Create Seurat Object and Edit MetaData
+
+```{r}
+library(glue)
+#read in via path name from downloaded file
+path <- glue("./{dir}/{filename}")
+counts <- read.delim(gzfile(path))
+cnt_mat <- as.matrix(counts)
+rm(counts)
+gse141445.obj <- CreateSeuratObject(cnt_mat)
+rm(cnt_mat)
+gse141445.obj@meta.data$orig.ident <- rep("Chen2021", nrow(gse141445.obj@meta.data))
+
+gse141445.obj@meta.data$gse_acc <- rep("GSE141445", nrow(gse141445.obj@meta.data))
+
+gse141445.obj@meta.data$condition <- rep("tumor", nrow(gse141445.obj@meta.data))
+```
+
+### Saving GSE141445 as an RDS Object
+
+```{r}
+dir <- "sc_rds_files"
+if (!file.exists(dir)) {
+  dir.create(dir, showWarnings = FALSE)
+}
+saveRDS(gse141445.obj, glue("./{dir}/gse141445.rds"))
+#removing non essential data from the
+
+rm(gse_141445,meta_141445,expr_141445)
+```
+
+```{r}
+gse141445.obj <- readRDS("./sc_rds_files/gse141445.rds")
+```
+
+# GSE176031/Song, H Download
+
+Single-cell RNA sequencing based on Seq-Well S\^3 protocol of **6
+prostate biopsies from 3 different patients, 4 radical prostatectomies
+with tumor-only samples from 4 patients, and 4 radical prostatectomies
+with matched normal samples from 4 patients**. Organoids derived from
+radical prostatectomy paired tumor and normal tissue samples.
+
+MetaData columns:
+
+**MetaData Columns: (orig.ident, sample_title, disease state, patientID
+(if possible))**
+
+```{r}
+library(GEOquery)
+#enter in GSE141445
+#read in the whole count matrices and meta data
+
+gse_176031 <- getGEO("GSE176031", GSEMatrix = TRUE)
+#divide the ExpressionSet into the expression matrix and meta data
+
+gse_176031 <- gse_176031[[1]]
+
+#expression matrix
+
+expr_176031 <- exprs(gse_176031)
+
+#meta-data
+meta_176031 <- pData(gse_176031)
+
+#showing first five rows of the meta-data and the expression samples
+head(expr_176031, n = 5)
+head(meta_176031, n = 5)
+#download the data into the data directory
+getGEOSuppFiles("GSE176031")
+```
+
+```{r}
+meta_176031
+```
+
+```{r}
+meta_176031 <- meta_176031 %>% 
+  select(c(title,geo_accession, source_name_ch1,"patient:ch1", "tissue:ch1" ))
+```
+
+```{r}
+state_markers <- c(unique(meta_176031$source_name_ch1))
+marker_replacements <- c("biopsy","tumor","norm_adj","tumor_adj","organoid")
+state_markers
+```
+
+```{r}
+#Intent is to replace the column's entries in the first character vector
+# with the entries in the character vector
+state_markers <- c(unique(meta_176031$source_name_ch1))
+marker_replacements <- c("biopsy","tumor","norm_adj","tumor_adj","organoid")
+
+replacement <- setNames(marker_replacements, state_markers)
+
+meta_176031 <- meta_176031 %>%
+  mutate(
+    source_name_ch1 = replacement[source_name_ch1]
+  ) %>%
+  select(c(geo_accession, source_name_ch1)) %>%
+  mutate(geo_source = paste0(geo_accession,"_", source_name_ch1))
+```
+
+```{r}
+meta_176031
+```
+
+```{r, include=FALSE}
+library(glue)
+
+dir <- "GSE176031"
+ftp <- "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE176nnn/GSE176031/matrix/"
+filename <- "GSE176031_RAW.tar"
+
+if (!file.exists(dir)) {
+  dir.create(dir, showWarnings = FALSE)
+}
+# Huge Reason why I am using this instead of regular GEOquery
+# the GSEXXXXX_RAW.tar that came form GEO,query only comes with
+#
+system(glue(
+  "if [ ! -f ./{dir}/{filename} ]; then ",
+  "wget -P ./{dir}/ ",
+  "{ftp}",
+  "{filename}; ",
+  "fi"
+))
+
+system(glue("tar -xzf ./{dir}/{filename} -C ./{dir}/"))
+```
+
+```{r}
+
+files <- list.files(path = "./GSE176031",
+                    pattern = "\\_dge.txt.gz",
+                    recursive = TRUE,
+                    full.names = TRUE)
+basename(files)[1:3]
+
+cnt_mats_176031 <- list()
+for(i in seq_along(files)){
+  cnt_mats_176031[[i]] <- read.delim(gzfile(files[i]))
+  
+  cnt_mats_176031[[i]] <- column_to_rownames(
+    cnt_mats_176031[[i]],
+    "GENE"
+  )
+}
+names(cnt_mats_176031) <- sub("^(GSM[0-9]+_).*", "\\1", basename(files))
+names(cnt_mats_176031) <- sub("_", "", names(cnt_mats_176031))
+
+names(cnt_mats_176031) <- meta_176031$geo_source
+```
+
+### Barcode Editing
+
+```{r}
+common_features_176031 <- Reduce(intersect, lapply(cnt_mats_176031, rownames))
+
+
+cnt_mats_common_176031 <- lapply(
+  cnt_mats_176031,
+  \(x) x[common_features_176031, ,drop = FALSE]
+)
+# for some reason this is appending the list names onto the colnames
+ # Which give global uniqueness to the barcodes
+#However take that away, and we have non-unique barcodes between sequencing libraries
+#I need to figure out why the names(cnt_mats) gets pre-pended to the DNA barcodes
+count_matrix_176031 <- do.call(cbind, cnt_mats_common_176031)
+#rm(cnt_mats)
+#rm(cnt_mats_common)
+length(unique(rownames(count_matrix_176031))) == nrow(count_matrix_176031)
+```
+
+Checking globalm uniquenes not inter-library uniqueness
+
+```{r}
+#rm(cnt_mats)
+#rm(cnt_mats_common)
+count_matrix_176031 <- as.matrix(count_matrix_176031)
+length(unique(rownames(count_matrix_176031))) == nrow(count_matrix_176031)
+
+#There is global unique-ness between the barcodes, but not uniqueness between libraries
+anyDuplicated(colnames(count_matrix_176031))
+any(is.na(colnames(count_matrix_176031)))
+any(colnames(count_matrix_176031) == "")
+```
+
+### Editing Seurat Meta-Data
+
+```{r}
+gse176031.obj <- CreateSeuratObject(count_matrix_176031)
+gse176031.obj@meta.data$orig.ident <- "Song2021"
+gse176031.obj@meta.data$geo_acc <- "GSE176031"
+
+cell_names <-  rownames(gse176031.obj@meta.data)
+
+sample_title <- sub("\\..*", "", cell_names)
+
+gse176031.obj@meta.data$sample_title  <- sample_title
+
+# this will address the inter library non-unique scenario
+non_unique_barcodes <- sub("^[^.]*\\.", "", cell_names)
+
+n <- ave( non_unique_barcodes, non_unique_barcodes, FUN = seq_along)
+
+result <- paste0(non_unique_barcodes, ".", n)
+
+rownames(gse176031.obj@meta.data) <- result
+
+gse176031.obj@meta.data <- gse176031.obj@meta.data %>%
+  mutate(condition = str_extract(sample_title, "(?<=_).*")) %>%
+  mutate(sample = str_extract(sample_title, "^[^_]+")) %>%
+  select(-sample_title)
+
+saveRDS(gse176031.obj, "./sc_rds_files/gse176031.rds")
+
+```
+
+```{r}
+gse176031.obj@meta.data
+```
+
+```{r}
+saveRDS(gse176031.obj, "./sc_rds_files/gse176031.rds")
+```
+
+```{r}
+rm(cnt_mats_176031, cnt_mats_common_176031, count_matrix_176031, meta_176031, gse176031.obj)
+```
+
+Problem: The authors stated that they had \~21,000 cells after QC.
+However after concatenating we have an insane 53,00 cells. It's very
+likely these are not QCed but it's a concerning amount to be that far
+from the Paper's numbers
+
+We'll have to see after QC if this reduces at all highly likely it will
+reduce these cells by alot
+
+# [GSE150692 (Crowley, 2020) (PRAD](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692)) Download
+
+2 normal benign prostate tissue specimens obtained from patient
+resections.
+
+**10x Genomics Chromium platform**
+
+In the Supplementary Data Crowley, et.al state that they used 6 human
+prostate samples, but only 3 are availble for download in the GEOquery
+website. BRUH
+
+**Human Samples Available on GEOQuery:**
+
+GSM4556600(MF002) clinical data available, benign tumor
+
+GSM4556601(MM033), benign tumor
+
+GSM4556602(MM037) , benign tumor
+
+**Mouse Samples (GeoQuery MetaData only gives the GSMXXXs for mouse
+Samples):**
+
+GSM4556594 GSM4556595 GSM4556596 GSM4556597 GSM4556598 GSM4556599
+
+DO NOT INCLUDE MOUSE SAMPLES LOL
+
+```{r}
+library(GEOquery)
+#enter in GSE141445
+#read in the whole count matrices and meta data
+
+gse_150692 <- getGEO("GSE150692", GSEMatrix = TRUE)
+#divide the ExpressionSet into the expression matrix and meta data
+
+gse_150692 <- gse_150692[[1]]
+
+#expression matrix
+
+expr_150692 <- exprs(gse_150692)
+
+#meta-data
+meta_150692 <- pData(gse_150692)
+
+#showing first five rows of the meta-data and the expression samples
+head(expr_150692, n = 5)
+head(meta_150692, n = 5)
+#download the data into the data directory
+getGEOSuppFiles("GSE150692")
+```
+
+```{r}
+meta_150692
+```
+
+### GEOquery Pull Excludes Human Assays
+
+```{r}
+library(glue)
+dir <- "GSE150692"
+filename <- "GSE150692_RAW.tar"
+
+if (!file.exists(dir)) {
+  dir.create(dir, showWarnings = FALSE)
+}
+# Huge Reason why I am using this instead of regular GEOquery
+# the GSEXXXXX_RAW.tar that came form GEO,query only comes with
+#
+system(glue(
+  "if [ ! -f ./{dir}/{filename} ]; then ",
+  "wget -P ./{dir}/ ",
+  "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE150nnn/GSE150692/suppl/",
+  "{filename}; ",
+  "fi"
+))
+
+system(glue("tar -xzf ./{dir}/{filename} -C ./{dir}/"))
+
+#GSMXX60 Are all human samples, but
+
+system(glue(
+  "mv ./{dir}/GSM4556602_MM037_clean_raw_counts_matrix.txt.gz ",
+  "./{dir}/GSM4556602_MM037_human_clean_raw_counts_matrix.txt.gz"
+))
+
+#sweep for only human files in the downloaded data
+files <- list.files(path = "./GSE150692",
+                    pattern = "_human_.*\\.txt\\.gz$",
+                    recursive = TRUE,
+                    full.names = TRUE)
+                    
+basename(files)
+
+cnt_mats_150692 <- list()
+for(i in seq_along(files)){
+  cnt_mats_150692[[i]] <- read.delim(gzfile(files[i]))
+}
+
+
+
+names(cnt_mats_150692) <- sub("^(GSM[0-9]+_).*", "\\1", basename(files))
+names(cnt_mats_150692) <- sub("_", "", names(cnt_mats_150692))
+```
+
+```{r}
+common_features <- Reduce(intersect, lapply(cnt_mats_150692, function(x) x$X))
+
+common_features[1:20]
+```
+
+### Fixing Repeated Gene Names in the data (Warning, Very Long Wait)
+
+```{r}
+
+cnt_mats_common_150692 <- lapply(cnt_mats_150692, function(x) {
+  x %>%
+    group_by(X) %>%
+    summarise(across(where(is.numeric), sum)) %>%
+    filter(X %in% common_features)
+})
+# for some reason this is appending the list names onto the colnames
+# Which give global uniqueness to the barcodes
+#However take that away, and we have non-unique barcodes between sequencing libraries
+#I need to figure out why the names(cnt_mats) gets pre-pended to the DNA barcodes
+count_matrix_150692 <- do.call(cbind, cnt_mats_common_150692)
+```
+
+```{r}
+count_matrix_150692 <- as.tibble(count_matrix_150692) %>% column_to_rownames("GSM4556600.X")
+```
+
+```{r}
+rm(cnt_mats_150692)
+rm(cnt_mats_common_150692)
+count_matrix <- as.matrix(count_matrix_150692)
+length(unique(rownames(count_matrix_150692))) == nrow(count_matrix_150692)
+
+#There is global unique-ness between the barcodes, but not uniqueness between libraries
+anyDuplicated(colnames(count_matrix_150692))
+any(is.na(colnames(count_matrix_150692)))
+any(colnames(count_matrix_150692) == "")
+```
+
+```{r}
+gse150692.obj <- CreateSeuratObject(count_matrix_150692)
+```
+
+Editing Meta Data
+
+Human samples only from GSE150692
+
+```{r}
+gse150692.obj
+
+gse150692.obj@meta.data$orig.ident <- "Crowley2020"
+gse150692.obj@meta.data$geo_acc <- "GSE150692"
+
+cell_names <-  rownames(gse150692.obj@meta.data)
+
+sample_title <- sub("\\..*", "", cell_names)
+
+gse150692.obj@meta.data$sample_title  <- sample_title
+
+# this will address the inter library non-unique scenario
+# this will address the inter library non-unique scenario
+non_unique_barcodes <- sub("^[^.]*\\.", "", cell_names)
+
+n <- ave(non_unique_barcodes, non_unique_barcodes, FUN = seq_along)
+
+result <- paste0(non_unique_barcodes, ".", n)
+
+rownames(gse150692.obj@meta.data) <- result
+
+```
+
+```{r}
+gse150692.obj@meta.data
+#saveRDS(gse150692.obj, "./sc_rds_files/gse150692.rds")
+```
+
+# GSE181294 ([Chen et. al., 2023](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294))
+
+Sequenced with Illumina NextSeq 500, Prepped with 10x Chromium Protocol
+(Single Cell 3' Library and Gel Bead Kit v2)
+
+20 human prostate tumors + matched adj Normal tissues
+
+5 Additional Healthy Prostates
+
+```{r}
+library(GEOquery)
+#enter in GSE141445
+#read in the whole count matrices and meta data
+
+gse_181294 <- getGEO("GSE181294", GSEMatrix = TRUE)
+#divide the ExpressionSet into the expression matrix and meta data
+
+gse_181294 <- gse_181294[[1]]
+
+#expression matrix
+
+expr_181294 <- exprs(gse_181294)
+
+#meta-data
+meta_181294 <- pData(gse_181294)
+
+#showing first five rows of the meta-data and the expression samples
+head(expr_181294, n = 5)
+head(meta_181294, n = 5)
+#download the data into the data directory
+getGEOSuppFiles("GSE181294")
+```
+
+```{r}
+meta_181294
+```
+
+```{r}
+colnames(meta_181294)
+meta_181294 <- meta_181294 %>% select(c(title,
+                                        geo_accession,
+                                        "age:ch1",
+                                        "condition:ch1",
+                                        "gleason:ch1",
+                                        "grade:ch1",
+                                        "tissue:ch1"))
+meta_181294
+```
+
+```{r}
+library(glue)
+dir <- "GSE181294"
+filename <- "GSE181294_RAW.tar"
+
+if (!file.exists(dir)) {
+  dir.create(dir, showWarnings = FALSE)
+}
+# Huge Reason why I am using this instead of regular GEOquery
+# the GSEXXXXX_RAW.tar that came form GEO,query only comes with
+#
+system(glue(
+  "if [ ! -f ./{dir}/{filename} ]; then ",
+  "wget -P ./{dir}/ ",
+  "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE181nnn/GSE181294/suppl/",
+  "{filename}; ",
+  "fi"
+))
+
+system(glue("tar -xzf ./{dir}/{filename} -C ./{dir}/"))
+```
+
+```{r}
+files <- list.files(path = "./GSE181294",
+                    pattern = "_human_.*\\.txt\\.gz$",
+                    recursive = TRUE,
+                    full.names = TRUE)
+basename(files)[1:2]
+
+cnt_mats_150692 <- list()
+for(i in seq_along(files)){
+  cnt_mats_150692[[i]] <- read.delim(gzfile(files[i]))
+}
+
+names(cnt_mats_150692) <- sub("^(GSM[0-9]+_).*", "\\1", basename(files))
+names(cnt_mats_150692) <- sub("_", "", names(cnt_mats_150692))
+```
+
+```{r}
+
+```
+
+# GSE120716 [(Henry et. al., 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716)
+
+GSE1207816 is a SuperSeries of two different resolutions of RNA-Seq data
+
+[GSE117271](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117271):
+Bulk RNAseq data of cell types isolated by FACS from normal human
+prostates
+
+[GSE117403](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117403):
+scRNA-Seq of cell types isolated by FACS from normal human prostates
+
+```{r}
+library(GEOquery)
+#enter in GSE141445
+#read in the whole count matrices and meta data
+
+gse_117403 <- getGEO("GSE117403", GSEMatrix = TRUE)
+#divide the ExpressionSet into the expression matrix and meta data
+
+gse_117403 <- gse_117403[[1]]
+
+#expression matrix
+
+expr_117403 <- exprs(gse_117403)
+
+#meta-data
+meta_117403 <- pData(gse_117403)
+
+#showing first five rows of the meta-data and the expression samples
+head(expr_117403, n = 5)
+head(meta_117403, n = 5)
+#download the data into the data directory
+getGEOSuppFiles("GSE117403")
+```
+
+```{r}
+
+```
+
+```{r}
+library(glue)
+dir <- "GSE117271"
+filename <- "GSE117271_series_matrix.txt.gz"
+
+if (!file.exists(dir)) {
+  dir.create(dir, showWarnings = FALSE)
+}
+# Huge Reason why I am using this instead of regular GEOquery
+# the GSEXXXXX_RAW.tar that came form GEO,query only comes with
+#
+system(glue(
+  "if [ ! -f ./{dir}/{filename} ]; then ",
+  "wget -P ./{dir}/ ",
+  "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE117nnn/GSE117271/matrix/",
+  "{filename}; ",
+  "fi"
+))
+
+path <- glue("./{dir}/{filename}")
+counts <- read.delim(gzfile(path))
+cnt_mat <- as.matrix(counts)
+```
