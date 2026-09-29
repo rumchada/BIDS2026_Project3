@@ -176,7 +176,7 @@ system(glue(
 ))
 ```
 
-### Create Seurat Object and Edit MetaData
+### Reading in Count Matrix, Creating Seurat Object
 
 ```{r}
 library(glue)
@@ -185,13 +185,77 @@ path <- glue("./{dir}/{filename}")
 counts <- read.delim(gzfile(path))
 cnt_mat <- as.matrix(counts)
 rm(counts)
+```
+
+```{r}
 gse141445.obj <- CreateSeuratObject(cnt_mat)
 rm(cnt_mat)
+```
+
+```{r}
+print("prior to editing")
+gse141445.obj@meta.data
+```
+
+### Editing MetaData
+
+**reading in clincal_data with the following variables (PatientID,
+patient_num, Age, Biopsy_gleason, pre-op PSA, pT)**
+
+```{r}
+library(openxlsx)
+clinical_gse141445 <- read.xlsx("./clinical_data/filtered_clinical_data_gse141445.xlsx")
+rownames(clinical_gse141445) <- NULL
+clinical_gse141445 <- clinical_gse141445 %>% mutate(patient_num = as.factor(patient_num),
+                                                    Age = as.factor(Age),
+                                                    bGleason = as.factor(bGleason),
+                                                    pre_PSA = as.factor(pre_PSA),
+                                                    pT = as.factor(pT))
+clinical_gse141445
+```
+
+```{r}
+#Adding First Author and Year
 gse141445.obj@meta.data$orig.ident <- rep("Chen2021", nrow(gse141445.obj@meta.data))
 
+#Adding GEO Accession Number
 gse141445.obj@meta.data$gse_acc <- rep("GSE141445", nrow(gse141445.obj@meta.data))
 
+#Adding Conditions for each sample:
+#"Here we have profiled the transcriptomes of 36,424 single cells from 13 prostate tumours and identified the epithelial cells underlying disease aggressiveness."
+#therefore each cell is from a tumor sample
 gse141445.obj@meta.data$condition <- rep("tumor", nrow(gse141445.obj@meta.data))
+gse141445.obj@meta.data
+```
+
+```{r}
+#extracting Patient ID
+#"Collected from patients who had undergone radical prostatectomy at Shanghai Changhai Hospital. The number following the barcode (the name of each column) reflects the patient number." - family.xml file in GSE141445
+gse141445.obj@meta.data$patient_num <- 
+  stringr::str_extract(
+    rownames(gse141445.obj@meta.data),
+    "[0-9]+$"
+  )
+
+gse141445.obj@meta.data <- gse141445.obj@meta.data %>%
+  mutate(patient_num = as.factor(patient_num))
+
+
+barcodes <- rownames(gse141445.obj@meta.data)
+```
+
+```{r}
+#for some reason left_join() deletes the cell barcodes, this is why I usually don't use it
+gse141445.obj@meta.data <- left_join(gse141445.obj@meta.data, clinical_gse141445, by="patient_num")
+
+gse141445.obj@meta.data <- gse141445.obj@meta.data %>% select(-patient_num)
+rownames(gse141445.obj@meta.data) <- barcodes
+```
+
+```{r}
+print("after editing")
+#Ideally we should have 10 columns at most
+gse141445.obj@meta.data
 ```
 
 ### Saving GSE141445 as an RDS Object
@@ -209,6 +273,18 @@ rm(gse_141445,meta_141445,expr_141445)
 
 ```{r}
 gse141445.obj <- readRDS("./sc_rds_files/gse141445.rds")
+```
+
+```{r}
+colnames(gse141445.obj@meta.data)
+```
+
+finished with pre-processing of GSE141445
+
+Metadata contains the following columns
+
+```         
+"orig.ident"   "nCount_RNA"   "nFeature_RNA" "gse_acc"      "condition"    "PatientID"    "Age"          "bGleason"     "pre_PSA"      "pT" 
 ```
 
 # GSE176031/Song, H Download
@@ -255,6 +331,7 @@ meta_176031
 ```{r}
 meta_176031 <- meta_176031 %>% 
   select(c(title,geo_accession, source_name_ch1,"patient:ch1", "tissue:ch1" ))
+meta_176031
 ```
 
 ```{r}
