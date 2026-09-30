@@ -843,10 +843,6 @@ meta_181294 <- meta_181294  %>%
   mutate(condition = replacement[condition])
 ```
 
-```{r}
-meta_181294
-```
-
 ### Reading in Count Matrices for GSE181294
 
 ```{r}
@@ -893,7 +889,9 @@ library(ps)
 # Matrices are too big for my local computer. It's time to compromise
 # Only use the Health cells as a reference
 regex2 <- ".*\\_HP[0-9]+\\.count\\.csv\\.gz$"
-patterns_count_files <- c(regex2)
+#matching to only 10 pairs of tumor_core/adj_norm datasets
+regex1 <- "^GSM54943(4[7-9]|5[0-9]|6[0-6])\\_SCG.*\\.count\\.csv\\.gz$"
+patterns_count_files <- c(regex1,regex2)
 
 count_files <- list.files(path = "./GSE181294",
                           pattern = paste0(patterns_count_files, collapse = "|"),
@@ -904,46 +902,74 @@ basename(count_files)
 ```
 
 ```{r}
-cnt_mats_150692 <- list()
+cnt_mats_181294 <- list()
 read_count_matrix <- function(f) {
-  if (grepl("\\.mtx(\\.gz)?$", f)) {
-    Matrix::readMM(gzfile(f))
-  } else if (grepl("\\.csv(\\.gz)?$", f)) {
+    if (grepl("\\.csv(\\.gz)?$", f)) {
     data.table::fread(f)
+    x <- data.frame(data.table::fread(f, check.names = FALSE))
+    rownames(x) <- x[[1]]
+    x[[1]] <- NULL
   } else {
     stop("Unsupported file type: ", f)
   }
-}
+return(x)}
 
-cnt_mats_150692 <- lapply(count_files, read_count_matrix)
+cnt_mats_181294 <- lapply(count_files, read_count_matrix)
 
-names(cnt_mats_150692) <- sub("^(GSM[0-9]+_).*", "\\1", basename(count_files))
-names(cnt_mats_150692) <- sub("_", "", names(cnt_mats_150692))
+names(cnt_mats_181294) <- sub("^(GSM[0-9]+_).*", "\\1", basename(count_files))
+names(cnt_mats_181294) <- sub("_", "", names(cnt_mats_181294))
 ```
 
 ```{r}
 gc()
+cnt_mats_181294$GSM5494343
 ```
 
 ```{r}
-common_features_150692 <- Reduce(intersect, lapply(cnt_mats_150692, function(x) x$V1))
+common_features_181294 <- Reduce(intersect, lapply(cnt_mats_181294, rownames))
 
 
-cnt_mats_common_150692 <- lapply(
-  cnt_mats_150692,
-  \(x) x$V1[common_features_150692 ,drop = FALSE]
+cnt_mats_common_181294 <- lapply(
+  cnt_mats_181294,
+  \(x) x[common_features_181294, ,drop = FALSE]
 )
 # for some reason this is appending the list names onto the colnames
 # Which give global uniqueness to the barcodes
 #However take that away, and we have non-unique barcodes between sequencing libraries
 #I need to figure out why the names(cnt_mats) gets pre-pended to the DNA barcodes
-count_matrix_150692 <- do.call(cbind, cnt_mats_common_150692)
-rm(cnt_mats_150692)
+count_matrix_181294 <- do.call(cbind, cnt_mats_common_181294)
+#rm(cnt_mats)
 #rm(cnt_mats_common)
+#checking uniqueness on the rows
+length(unique(rownames(count_matrix_181294))) == nrow(count_matrix_181294)
 ```
 
 ```{r}
+rm(cnt_mats_181294)
+rm(cnt_mats_common_181294)
+count_matrix_181294 <- as.matrix(count_matrix_181294)
+length(unique(rownames(count_matrix_181294))) == nrow(count_matrix_181294)
 
+#checking for any duplicates on the colnames
+anyDuplicated(colnames(count_matrix_181294))
+any(is.na(colnames(count_matrix_181294)))
+any(colnames(count_matrix_181294) == "")
+```
+
+### Creating Seurat Object
+
+I will edit the meta data on a different computer
+
+```{r}
+rm(count_matrix_176031)
+gse181294.obj <- CreateSeuratObject(count_matrix_181294)
+gse181294.obj@meta.data$orig.ident <- "Chen2023"
+gse181294.obj@meta.data$geo_acc <- "GSE181294"
+```
+
+```{r}
+rm(count_matrix_181294)
+saveRDS(gse181294.obj, "./sc_rds_files/gse181294.rds")
 ```
 
 # GSE120716 [(Henry et. al., 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716)
