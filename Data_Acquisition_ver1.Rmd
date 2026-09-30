@@ -1016,46 +1016,34 @@ but the pursuit of perfection is neurotic**
 
 Next Step: Write Sample Chart for the collected scRNA-Seq samples
 
-#Final Sample Sheet
+# Final Sample Sheet
 
-+-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
-|           | Author(s)                                                            | Organism(s) | Condition(s) | preQC    | Lib Prep  | Availability  | Clinical     |
-|           |                                                                      |             |              | Reported | Protocol  | Format        | Data         |
-|           |                                                                      |             |              | Cell Cnt |           |               |              |
-+===========+======================================================================+=============+==============+==========+===========+===============+==============+
-| GSE141445 | [(Chen et. al.,                                                      | Human       | Tumor        | 36,424   | 10x       | series_matrix | available,   |
-|           | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |             |              |          | Chromium  |               | but sparse   |
-|           |                                                                      |             |              |          | V2        |               |              |
-+-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
-| GSE176031 | [(Song, H                                                            | Human       | Paired       | 53,000   | Seq-Well  | series_matrix | available,   |
-|           | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |             | (AdjNorm +   |          |           |               | but sparse   |
-|           |                                                                      |             | tumor_core)  |          |           |               | and          |
-|           |                                                                      |             |              |          |           |               | inconsistent |
-+-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
-| GSE150692 | [(Crowley,                                                           | Human / Mus | Tumor        |          | Chromium  | series_matrix | sparse but   |
-|           | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) | Musculus    |              |          | Single    |               | available    |
-|           |                                                                      |             |              |          | Cell 5’   |               |              |
-|           |                                                                      | "orthotopic |              |          | Kit       |               | only         |
-|           |                                                                      | 6694c2      |              |          |           |               |              |
-|           |                                                                      | pancreatic  |              |          | DO NOT    |               | 1 out of     |
-|           |                                                                      | tumors"     |              |          | USE       |               | three has    |
-|           |                                                                      |             |              |          |           |               | useful       |
-|           |                                                                      |             |              |          |           |               | clinical     |
-|           |                                                                      |             |              |          |           |               | data.        |
-|           |                                                                      |             |              |          |           |               |              |
-|           |                                                                      |             |              |          |           |               | Not worth    |
-|           |                                                                      |             |              |          |           |               | trying to    |
-|           |                                                                      |             |              |          |           |               | use the      |
-|           |                                                                      |             |              |          |           |               | clinical     |
-|           |                                                                      |             |              |          |           |               | data         |
-+-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
-| GSE181294 | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human       | Healthy      |          | slide-seq | series matrix | only Gleason |
-|           | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |             |              |          |           |               | Available    |
-|           |                                                                      |             | and Paired   |          |           | only using 10 |              |
-|           |                                                                      |             | (PRAD / N.   |          |           | paired        |              |
-|           |                                                                      |             | Adj)         |          |           | samples and 5 |              |
-|           |                                                                      |             |              |          |           | healthy ones  |              |
-+-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
++------------------+----------------------------------------------------------------------+-------------------------------------+--------------+--------------+-----------------------+-----------------------------------+-------------------------------------------------------------+
+|                  | Author(s)                                                            | Organism(s)                         | Condition(s) | preQC        | Lib Prep Protocol     | Availability Format               | Clinical Data                                               |
+|                  |                                                                      |                                     |              | Reported     |                       |                                   |                                                             |
+|                  |                                                                      |                                     |              | Cell Cnt     |                       |                                   |                                                             |
++==================+======================================================================+=====================================+==============+==============+=======================+===================================+=============================================================+
+| GSE141445        | [(Chen et. al.,                                                      | Human                               | Tumor        | 36,424       | 10x Chromium V2       | series_matrix                     | available, but sparse                                       |
+|                  | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |                                     |              |              |                       |                                   |                                                             |
++------------------+----------------------------------------------------------------------+-------------------------------------+--------------+--------------+-----------------------+-----------------------------------+-------------------------------------------------------------+
+| GSE176031        | [(Song, H                                                            | Human                               | Paired       | 53,000       | Seq-Well              | series_matrix                     | available, but sparse and inconsistent                      |
+|                  | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |                                     | (AdjNorm +   |              |                       |                                   |                                                             |
+|                  |                                                                      |                                     | tumor_core)  |              |                       |                                   |                                                             |
++------------------+----------------------------------------------------------------------+-------------------------------------+--------------+--------------+-----------------------+-----------------------------------+-------------------------------------------------------------+
+| GSE150692        | [(Crowley,                                                           | Human / Mus Musculus                | Tumor        |              | Chromium Single Cell  | series_matrix                     | sparse but available                                        |
+|                  | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) |                                     |              |              | 5’ Kit                |                                   |                                                             |
+|                  |                                                                      | "orthotopic 6694c2 pancreatic       |              |              |                       |                                   | only                                                        |
+|                  |                                                                      | tumors"                             |              |              | DO NOT USE            |                                   |                                                             |
+|                  |                                                                      |                                     |              |              |                       |                                   | 1 out of three has useful clinical data.                    |
+|                  |                                                                      |                                     |              |              |                       |                                   |                                                             |
+|                  |                                                                      |                                     |              |              |                       |                                   | Not worth trying to use the clinical data                   |
++------------------+----------------------------------------------------------------------+-------------------------------------+--------------+--------------+-----------------------+-----------------------------------+-------------------------------------------------------------+
+| GSE181294        | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human                               | Healthy      |              | slide-seq             | series matrix                     | only Gleason Available                                      |
+|                  | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |                                     |              |              |                       |                                   |                                                             |
+|                  |                                                                      |                                     | and Paired   |              |                       | only using 10 paired samples and  |                                                             |
+|                  |                                                                      |                                     | (PRAD / N.   |              |                       | 5 healthy ones                    |                                                             |
+|                  |                                                                      |                                     | Adj)         |              |                       |                                   |                                                             |
++------------------+----------------------------------------------------------------------+-------------------------------------+--------------+--------------+-----------------------+-----------------------------------+-------------------------------------------------------------+
 
 # GSE120716 [(Henry et. al., 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716)
 
