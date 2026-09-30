@@ -79,43 +79,50 @@ Papers that could help:
 - [GSE1201716(Henry et. al., 2018)
   (Adj.N)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716)
 
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+------------------+
-|              | Author(s)                                                            | Organism(s) | Condition(s) | Cell   | Lib Prep  | Availability  | Clinical Data    |
-|              |                                                                      |             |              | Cnt    | Protocol  | Format        |                  |
-+==============+======================================================================+=============+==============+========+===========+===============+==================+
-| GSE141445    | [(Chen et. al.,                                                      | Human       | PRAD         | 36,424 | 10x       | series_matrix | available, but   |
-|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |             |              |        | Chromium  |               | sparse           |
-|              |                                                                      |             |              |        | V2        |               |                  |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+------------------+
-| GSE176031    | [(Song, H                                                            | Human       | Paired       | 21,743 | Seq-Well  | series_matrix | available, but   |
-|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |             | (AdjNorm +   |        |           |               | sparse and       |
-|              |                                                                      |             | PRAD)        |        |           |               | inconsistent     |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+------------------+
-| GSE150692    | [(Crowley,                                                           | Human / Mus | PRAD         |        | Chromium  | series_matrix | sparse but       |
-|              | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) | Musculus    |              |        | Single    |               | available        |
-|              |                                                                      |             |              |        | Cell 5’   |               |                  |
-|              |                                                                      | "orthotopic |              |        | Kit       |               | only             |
-|              |                                                                      | 6694c2      |              |        |           |               |                  |
-|              |                                                                      | pancreatic  |              |        | DO NOT    |               | 1 out of three   |
-|              |                                                                      | tumors"     |              |        | USE       |               | has useful       |
-|              |                                                                      |             |              |        |           |               | clinical data.   |
-|              |                                                                      |             |              |        |           |               |                  |
-|              |                                                                      |             |              |        |           |               | Not worth trying |
-|              |                                                                      |             |              |        |           |               | to use the       |
-|              |                                                                      |             |              |        |           |               | clinical data    |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+------------------+
-| EGAD01008340 | [(Tuang et. al,                                                      | Human       | Paired (PRAD |        |           | .fast_files   | not available    |
-|              | 2021)](https://ega-archive.org/datasets/EGAD00001008340)             |             | / N. Adj)    |        |           |               |                  |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+------------------+
-| GSE181294    | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human       | Paired (PRAD |        | slide-seq | series matrix | available:       |
-|              | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |             | / N. Adj)    |        |           |               |                  |
-|              |                                                                      |             |              |        |           |               | condition, age,  |
-|              |                                                                      |             |              |        |           |               | gleason, grade,  |
-|              |                                                                      |             |              |        |           |               | tissue           |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+------------------+
-| GSE120716    | [(Henry et. al.,                                                     | Human       | N. Adj       |        |           | series matrix |                  |
-|              | 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716) |             |              |        |           | file          |                  |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+------------------+
++--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
+|              | Author(s)                                                            | Organism(s) | Condition(s) | Cell   | Lib Prep  | Availability  | Clinical     |
+|              |                                                                      |             |              | Cnt    | Protocol  | Format        | Data         |
++==============+======================================================================+=============+==============+========+===========+===============+==============+
+| GSE141445    | [(Chen et. al.,                                                      | Human       | PRAD         | 36,424 | 10x       | series_matrix | available,   |
+|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |             |              |        | Chromium  |               | but sparse   |
+|              |                                                                      |             |              |        | V2        |               |              |
++--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
+| GSE176031    | [(Song, H                                                            | Human       | Paired       | 21,743 | Seq-Well  | series_matrix | available,   |
+|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |             | (AdjNorm +   |        |           |               | but sparse   |
+|              |                                                                      |             | PRAD)        |        |           |               | and          |
+|              |                                                                      |             |              |        |           |               | inconsistent |
++--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
+| GSE150692    | [(Crowley,                                                           | Human / Mus | PRAD         |        | Chromium  | series_matrix | sparse but   |
+|              | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) | Musculus    |              |        | Single    |               | available    |
+|              |                                                                      |             |              |        | Cell 5’   |               |              |
+|              |                                                                      | "orthotopic |              |        | Kit       |               | only         |
+|              |                                                                      | 6694c2      |              |        |           |               |              |
+|              |                                                                      | pancreatic  |              |        | DO NOT    |               | 1 out of     |
+|              |                                                                      | tumors"     |              |        | USE       |               | three has    |
+|              |                                                                      |             |              |        |           |               | useful       |
+|              |                                                                      |             |              |        |           |               | clinical     |
+|              |                                                                      |             |              |        |           |               | data.        |
+|              |                                                                      |             |              |        |           |               |              |
+|              |                                                                      |             |              |        |           |               | Not worth    |
+|              |                                                                      |             |              |        |           |               | trying to    |
+|              |                                                                      |             |              |        |           |               | use the      |
+|              |                                                                      |             |              |        |           |               | clinical     |
+|              |                                                                      |             |              |        |           |               | data         |
++--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
+| EGAD01008340 | [(Tuang et. al,                                                      | Human       | Paired (PRAD |        |           | .fast_files   | not          |
+|              | 2021)](https://ega-archive.org/datasets/EGAD00001008340)             |             | / N. Adj)    |        |           |               | available    |
++--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
+| GSE181294    | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human       | Paired (PRAD |        | slide-seq | series matrix | available:   |
+|              | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |             | / N. Adj)    |        |           |               |              |
+|              |                                                                      |             |              |        |           | Not possible  | condition,   |
+|              |                                                                      |             |              |        |           | too big even  | age,         |
+|              |                                                                      |             |              |        |           | for the big   | gleason,     |
+|              |                                                                      |             |              |        |           | computer      | grade,       |
+|              |                                                                      |             |              |        |           |               | tissue       |
++--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
+| GSE120716    | [(Henry et. al.,                                                     | Human       | N. Adj       |        |           | series matrix |              |
+|              | 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716) |             |              |        |           | file          |              |
++--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
 
 # GSE141445/Chen, O Download
 
@@ -160,7 +167,7 @@ meta_141445
 ```{r, inlcude=FALSE, warning=FALSE}
 library(glue)
 dir <- "GSE141445"
-filename <- "GSM4203181_data.raw.matrix.txt.gz"
+filename <- "GSE141445_RAW.tar"
 
 if (!file.exists(dir)) {
   dir.create(dir, showWarnings = FALSE)
@@ -171,16 +178,26 @@ if (!file.exists(dir)) {
 system(glue(
   "if [ ! -f ./{dir}/{filename} ]; then ",
   "wget -P ./{dir}/ ",
-  "https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM4203nnn/GSM4203181/suppl/",
+  "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE141nnn/GSE141445/suppl/",
   "{filename}; ",
   "fi"
 ))
+
+file.exists("./GSE141445/GSE141445_RAW.tar")
+
+
+system(glue("tar -xzf ./{dir}/{filename} -C ./{dir}/"))
 ```
 
 ### Reading in Count Matrix, Creating Seurat Object
 
 ```{r}
 library(glue)
+dir <- "GSE141445"
+
+filename <- "GSM4203181_data.raw.matrix.txt.gz"
+
+
 #read in via path name from downloaded file
 path <- glue("./{dir}/{filename}")
 counts <- read.delim(gzfile(path))
@@ -544,7 +561,7 @@ saveRDS(gse176031.obj, "./sc_rds_files/gse176031.rds")
 ```
 
 ```{r}
-rm(cnt_mats_176031, cnt_mats_common_176031, count_matrix_176031, meta_176031, gse176031.obj)
+rm(cnt_mats_176031, cnt_mats_common_176031, count_matrix_176031, meta_176031)
 ```
 
 Problem: The authors stated that they had \~21,000 cells after QC.
@@ -632,7 +649,7 @@ system(glue(
 
 system(glue("tar -xzf ./{dir}/{filename} -C ./{dir}/"))
 
-#GSMXX60 Are all human samples, but
+#GSMXX60 Are all human samples, but one of the sample files was not named with human marker
 
 system(glue(
   "mv ./{dir}/GSM4556602_MM037_clean_raw_counts_matrix.txt.gz ",
@@ -659,6 +676,7 @@ names(cnt_mats_150692) <- sub("_", "", names(cnt_mats_150692))
 ```
 
 ```{r}
+#finding repeat features within the same matrix
 common_features <- Reduce(intersect, lapply(cnt_mats_150692, function(x) x$X))
 
 common_features[1:20]
@@ -667,7 +685,7 @@ common_features[1:20]
 ### Fixing Repeated Gene Names in the data (Warning, Very Long Wait)
 
 ```{r}
-
+#condensing only repeated features per column this is not pseudobulking
 cnt_mats_common_150692 <- lapply(cnt_mats_150692, function(x) {
   x %>%
     group_by(X) %>%
@@ -689,6 +707,7 @@ count_matrix_150692 <- as.tibble(count_matrix_150692) %>% column_to_rownames("GS
 rm(cnt_mats_150692)
 rm(cnt_mats_common_150692)
 count_matrix <- as.matrix(count_matrix_150692)
+dim(count_matrix)
 length(unique(rownames(count_matrix_150692))) == nrow(count_matrix_150692)
 
 #There is global unique-ness between the barcodes, but not uniqueness between libraries
@@ -731,7 +750,7 @@ rownames(gse150692.obj@meta.data) <- result
 
 ```{r}
 gse150692.obj@meta.data
-#saveRDS(gse150692.obj, "./sc_rds_files/gse150692.rds")
+saveRDS(gse150692.obj, "./sc_rds_files/gse150692.rds")
 ```
 
 # GSE181294 ([Chen et. al., 2023](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294))
@@ -739,9 +758,31 @@ gse150692.obj@meta.data
 Sequenced with Illumina NextSeq 500, Prepped with 10x Chromium Protocol
 (Single Cell 3' Library and Gel Bead Kit v2)
 
-20 human prostate tumors + matched adj Normal tissues
+DO NOT DOWNLOAD THE SPATIAL DATA
 
-5 Additional Healthy Prostates
+Hold on in the paper they mentioned that they used sc as well as spatial
+data. How do I know which is Spatial Data and which is Single cell data.
+These hints are actually given in the annotation files listed as
+
+**GSE181294_slide.seq.ano.csv and GSE181294_scRNAseq.ano.csv**
+
+**Spatial Data Samples: S1\_**HP1, S2_HP2, S3_HP3, S4_HP4, S5_Benign01,
+S6_Benign02, S7_Benign03, S8_Benign04, S9_Tumor01, S10_Tumor02,
+S11_Tumor03, S_11Tumor04. These are also all of the **S[0-9]**
+demarcated samples. Which is why they have BARCODES and GENES as
+seperate csv vecor SO DO NOT DOWNLOAD THOSE LOL
+
+**Single Cell Data Samples: Essentially anything without the prefix
+\^S[0-9] or regex pattern \^GSM61339[0-9]+\\\\.counts\\\\.mtx\\\\.gz**
+
+**20 human prostate tumors + matched adj Normal tissues**
+
+**5 Additional Healthy Prostates**
+
+It may be waste of time to go after all of the files in this study
+instead I may just opt in to grab the Healthy Data. This will make
+downloading this data more suitable for both the Windows PC and Mac
+book.
 
 ```{r}
 library(GEOquery)
@@ -771,14 +812,42 @@ getGEOSuppFiles("GSE181294")
 meta_181294
 ```
 
+### Geoquery Meta-Data
+
 ```{r}
 colnames(meta_181294)
-meta_181294 <- meta_181294 %>% select(c(title,
-                                        geo_accession,
-                                        "condition:ch1",
-                                        "gleason:ch1")) 
+meta_181294 <- meta_181294 %>% 
+  select(c(title, geo_accession, "condition:ch1", "gleason:ch1")) %>%
+  mutate(`gleason:ch1` = case_when(
+                                  "NA" == `gleason:ch1` ~ NA_character_,
+                                  str_detect(`gleason:ch1`, "=") ~ gsub("=.*$", "", `gleason:ch1`))) %>%
+          mutate(`gleason:ch1` = trimws(`gleason:ch1`))
+
+#before renaming
+meta_181294
+
+#renaming columns
+colnames(meta_181294)[colnames(meta_181294) == "gleason:ch1"] <- "bGleason"
+colnames(meta_181294)[colnames(meta_181294) == "condition:ch1"] <- "condition"
+
 meta_181294
 ```
+
+```{r}
+condition_markers <- c(unique(meta_181294$condition))
+condition_label_replacements <- c("healthy", "norm_adj", "tumor_core")
+
+replacement <- setNames(condition_label_replacements, condition_markers)
+
+meta_181294 <- meta_181294  %>%
+  mutate(condition = replacement[condition])
+```
+
+```{r}
+meta_181294
+```
+
+### Reading in Count Matrices for GSE181294
 
 ```{r}
 library(glue)
@@ -802,20 +871,75 @@ system(glue(
 system(glue("tar -xzf ./{dir}/{filename} -C ./{dir}/"))
 ```
 
-```{r}
-files <- list.files(path = "./GSE181294",
-                    pattern = "_human_.*\\.txt\\.gz$",
-                    recursive = TRUE,
-                    full.names = TRUE)
-basename(files)[1:2]
+There are two types of files that exist in GSE181294: completed count
+matrices and fragmented count matrices where the barcodes and genes are
+stored in vectors. It's likely the author uploaded this way due to some
+kind of memory guidelines. Which makes sense for 51 seperate count
+matrices with likely over 100,000 cells available. We have to be very
+VERY conscious on how to handle this read in.
 
+In order not to fry my new RAM sticks or my MOBO, I'll have to parse out
+the chunks of data carefully. Luckily it served the first run through
+with a more efficient loop but something tells me I'll be coming back to
+fix some metadat and I'll have to reprocess some stuff.
+
+```{r}
+library(Matrix)
+library(data.table)
+#system statistics
+library(ps)
+#extracting files list in the GEOquery metadata
+#CSV count files
+# Matrices are too big for my local computer. It's time to compromise
+# Only use the Health cells as a reference
+regex2 <- ".*\\_HP[0-9]+\\.count\\.csv\\.gz$"
+patterns_count_files <- c(regex2)
+
+count_files <- list.files(path = "./GSE181294",
+                          pattern = paste0(patterns_count_files, collapse = "|"),
+                          recursive = TRUE,
+                          full.names = TRUE)
+
+basename(count_files)
+```
+
+```{r}
 cnt_mats_150692 <- list()
-for(i in seq_along(files)){
-  cnt_mats_150692[[i]] <- read.delim(gzfile(files[i]))
+read_count_matrix <- function(f) {
+  if (grepl("\\.mtx(\\.gz)?$", f)) {
+    Matrix::readMM(gzfile(f))
+  } else if (grepl("\\.csv(\\.gz)?$", f)) {
+    data.table::fread(f)
+  } else {
+    stop("Unsupported file type: ", f)
+  }
 }
 
-names(cnt_mats_150692) <- sub("^(GSM[0-9]+_).*", "\\1", basename(files))
+cnt_mats_150692 <- lapply(count_files, read_count_matrix)
+
+names(cnt_mats_150692) <- sub("^(GSM[0-9]+_).*", "\\1", basename(count_files))
 names(cnt_mats_150692) <- sub("_", "", names(cnt_mats_150692))
+```
+
+```{r}
+gc()
+```
+
+```{r}
+common_features_150692 <- Reduce(intersect, lapply(cnt_mats_150692, function(x) x$V1))
+
+
+cnt_mats_common_150692 <- lapply(
+  cnt_mats_150692,
+  \(x) x$V1[common_features_150692 ,drop = FALSE]
+)
+# for some reason this is appending the list names onto the colnames
+# Which give global uniqueness to the barcodes
+#However take that away, and we have non-unique barcodes between sequencing libraries
+#I need to figure out why the names(cnt_mats) gets pre-pended to the DNA barcodes
+count_matrix_150692 <- do.call(cbind, cnt_mats_common_150692)
+rm(cnt_mats_150692)
+#rm(cnt_mats_common)
 ```
 
 ```{r}
