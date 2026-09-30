@@ -55,7 +55,7 @@ Papers that could help:
 
 <https://pmc.ncbi.nlm.nih.gov/articles/PMC11369112/?utm_source=chatgpt.com>
 
-# Datasets Available
+# Proposed Datasets Available
 
 ### PRAD Cancer Sample
 
@@ -958,7 +958,7 @@ any(colnames(count_matrix_181294) == "")
 
 ### Creating Seurat Object
 
-I will edit the meta data on a different computer
+I will add to the meta data on a different computer
 
 ```{r}
 rm(count_matrix_176031)
@@ -971,6 +971,91 @@ gse181294.obj@meta.data$geo_acc <- "GSE181294"
 rm(count_matrix_181294)
 saveRDS(gse181294.obj, "./sc_rds_files/gse181294.rds")
 ```
+
+MetaData - ClinicalData Merging
+
+```{r}
+gse181294.obj <- readRDS("./sc_rds_files/gse181294.rds")
+```
+
+```{r}
+gse181294.obj@meta.data
+
+#extractig the cell names
+cell_names <-  rownames(gse181294.obj@meta.data)
+cell_names[1:10]
+#seperating the cell_names from the GSMXXXXX sample title
+#sample_title <- sub("\\..*", "", cell_names)
+barcodes <- sub("^[^.]*\\.","", cell_names)
+barcodes[1:10]
+sample_title <- str_extract(barcodes, "^[^_]*_") %>% str_remove("_")
+
+if(!identical(barcodes, rownames(gse181294.obj@meta.data))){ 
+  rownames(gse181294.obj@meta.data) <- barcodes 
+  }
+
+gse181294.obj@meta.data$title <- sample_title
+
+gse181294.obj@meta.data <- left_join(gse181294.obj@meta.data, meta_181294, by = "title")
+```
+
+```{r}
+gse181294.obj@meta.data
+if(!identical(barcodes, rownames(gse181294.obj@meta.data))){ 
+  rownames(gse181294.obj@meta.data) <- barcodes 
+}
+gse181294.obj@meta.data
+```
+
+```{r}
+saveRDS(gse181294.obj, "./sc_rds_files/gse181294.rds")
+```
+
+**Stop Here I think 4 is enough lol. The pursuit of excellence is noble,
+but the pursuit of perfection is neurotic**
+
+Next Step: Write Sample Chart for the collected scRNA-Seq samples
+
+#Final Sample Sheet
+
++-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+|           | Author(s)                                                            | Organism(s) | Condition(s) | preQC    | Lib Prep  | Availability  | Clinical     |
+|           |                                                                      |             |              | Reported | Protocol  | Format        | Data         |
+|           |                                                                      |             |              | Cell Cnt |           |               |              |
++===========+======================================================================+=============+==============+==========+===========+===============+==============+
+| GSE141445 | [(Chen et. al.,                                                      | Human       | Tumor        | 36,424   | 10x       | series_matrix | available,   |
+|           | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |             |              |          | Chromium  |               | but sparse   |
+|           |                                                                      |             |              |          | V2        |               |              |
++-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE176031 | [(Song, H                                                            | Human       | Paired       | 53,000   | Seq-Well  | series_matrix | available,   |
+|           | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |             | (AdjNorm +   |          |           |               | but sparse   |
+|           |                                                                      |             | tumor_core)  |          |           |               | and          |
+|           |                                                                      |             |              |          |           |               | inconsistent |
++-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE150692 | [(Crowley,                                                           | Human / Mus | Tumor        |          | Chromium  | series_matrix | sparse but   |
+|           | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) | Musculus    |              |          | Single    |               | available    |
+|           |                                                                      |             |              |          | Cell 5’   |               |              |
+|           |                                                                      | "orthotopic |              |          | Kit       |               | only         |
+|           |                                                                      | 6694c2      |              |          |           |               |              |
+|           |                                                                      | pancreatic  |              |          | DO NOT    |               | 1 out of     |
+|           |                                                                      | tumors"     |              |          | USE       |               | three has    |
+|           |                                                                      |             |              |          |           |               | useful       |
+|           |                                                                      |             |              |          |           |               | clinical     |
+|           |                                                                      |             |              |          |           |               | data.        |
+|           |                                                                      |             |              |          |           |               |              |
+|           |                                                                      |             |              |          |           |               | Not worth    |
+|           |                                                                      |             |              |          |           |               | trying to    |
+|           |                                                                      |             |              |          |           |               | use the      |
+|           |                                                                      |             |              |          |           |               | clinical     |
+|           |                                                                      |             |              |          |           |               | data         |
++-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE181294 | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human       | Healthy      |          | slide-seq | series matrix | only Gleason |
+|           | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |             |              |          |           |               | Available    |
+|           |                                                                      |             | and Paired   |          |           | only using 10 |              |
+|           |                                                                      |             | (PRAD / N.   |          |           | paired        |              |
+|           |                                                                      |             | Adj)         |          |           | samples and 5 |              |
+|           |                                                                      |             |              |          |           | healthy ones  |              |
++-----------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
 
 # GSE120716 [(Henry et. al., 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716)
 
@@ -1008,29 +1093,69 @@ getGEOSuppFiles("GSE117403")
 ```
 
 ```{r}
-
+meta_117403
 ```
 
 ```{r}
-library(glue)
-dir <- "GSE117271"
-filename <- "GSE117271_series_matrix.txt.gz"
+dir <- "GSE117403"
+count_files <- list.files(path = "./GSE117403",
+                          pattern = "^GSE117403.*",
+                          recursive = TRUE,
+                          full.names = TRUE)
+#save the names of the files to a character vector
+count_files <- basename(count_files)
 
-if (!file.exists(dir)) {
-  dir.create(dir, showWarnings = FALSE)
+D17 <- str_extract(count_files, "^GSE117403_D17_.*")
+D17 <- D17[!is.na(D17)]
+D27 <- str_extract(count_files, "^GSE117403_D27_.*")
+D27 <- D27[!is.na(D27)]
+Pd <- str_extract(count_files, "^GSE117403_Pd_.*")
+Pd <- Pd[!is.na(Pd)]
+
+count_files <- list(
+  D17 = D17,
+  D27 = D27,
+  Pd  = Pd
+)
+count_files
+cnt_mat_list_117403 <- list()
+
+for (i in names(count_files)) {
+  
+  files <- count_files[[i]]
+  
+  mtx_file <- files[str_detect(files, "\\.mtx\\.gz$")]
+  features_file <- files[str_detect(files, "features|genes")]
+  barcodes_file <- files[str_detect(files, "barcodes")]
+  
+  cnt_mat <- Matrix::readMM(gzfile(glue("./{dir}/{mtx_file}")))
+  
+  features <- read_tsv(gzfile(glue("./{dir}/{features_file}")), col_names = FALSE)
+  rownames(cnt_mat) <- features[[1]]
+  
+  barcodes <- read_tsv(gzfile(glue("./{dir}/{barcodes_file}")), col_names = FALSE)
+  colnames(cnt_mat) <- barcodes[[1]]
+  
+  cnt_mat_list_117403[[i]] <- cnt_mat
+  
 }
-# Huge Reason why I am using this instead of regular GEOquery
-# the GSEXXXXX_RAW.tar that came form GEO,query only comes with
-#
-system(glue(
-  "if [ ! -f ./{dir}/{filename} ]; then ",
-  "wget -P ./{dir}/ ",
-  "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE117nnn/GSE117271/matrix/",
-  "{filename}; ",
-  "fi"
-))
+```
 
-path <- glue("./{dir}/{filename}")
-counts <- read.delim(gzfile(path))
-cnt_mat <- as.matrix(counts)
+```{r}
+common_features_117403 <- Reduce(intersect, lapply(cnt_mat_list_117403, rownames))
+
+
+cnt_mats_common_117403 <- lapply(
+  cnt_mat_list_117403,
+  \(x) x[common_features_117403, ,drop = FALSE]
+)
+# for some reason this is appending the list names onto the colnames
+# Which give global uniqueness to the barcodes
+#However take that away, and we have non-unique barcodes between sequencing libraries
+#I need to figure out why the names(cnt_mats) gets pre-pended to the DNA barcodes
+count_matrix_117403 <- do.call(cbind, cnt_mats_common_117403)
+#rm(cnt_mats)
+#rm(cnt_mats_common)
+#checking uniqueness on the rows
+length(unique(rownames(count_matrix_117403))) == nrow(count_matrix_117403)
 ```
