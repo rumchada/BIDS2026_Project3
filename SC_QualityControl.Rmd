@@ -8,7 +8,7 @@ output: html_document
 ```{r}
 #Seurat Core
 library(Seurat)
-library(BPCells)
+#library(BPCells)
 library(SeuratWrappers)
 library(S4Vectors)
 
@@ -36,7 +36,7 @@ if(!dir.exists(dir)){
 
 ```{r}
 gse141445.obj <- readRDS("./sc_rds_files/gse141445.rds")
-gse141445.obj
+
 ```
 
 Estimate Sparsity
@@ -60,36 +60,76 @@ cat("Droplets with >500 UMI:", sum(umi_counts > 500) ,
     "(likely cells, will be validated by EmptyDrops)\n")
 ```
 
-Empty Droplet Detection
+### Empty Droplet Detection
 
 ```{r}
-initial_cell_cnt <- dim(object@assays$RNA@layers$counts)[1]
-initial_gene_cnt <- dim(object@assays$RNA@layers$counts)[2]
+ncol(object)
+```
 
-set.seed(100)
-#lower: Droplets with <100 UMI assumed empty. Depending on the experiment this could change
-#niters: Iterations for specifying the number of iterations to use for the Monte Carlo p-value calculations.
-empty_results <- emptyDrops(m = object@assays$RNA@layers$counts,
-                            lower = 100,
-                            niters = 10000,
-                            test.ambient = TRUE)
+Need to write write description of the empty Droplets functions.
+
+```{r}
+emptyDrops_wrapr <- function(rna_mat, object) {
+  #use a local variable to save the original matrix in here
+  original_mat <- rna_mat
+  
+  initial_cell_cnt <- dim(original_mat)[1]
+  initial_gene_cnt <- dim(original_mat)[2]
+  
+  #start of tryCatch
+  tryCatch(
+    {
+      set.seed(100)
+      #lower: Droplets with <100 UMI assumed empty. Depending on the experiment this could change
+      #niters: Iterations for specifying the number of iterations to use for the Monte Carlo p-value calculations.
+      empty_report <- emptyDrops(
+        m = rna_mat,
+        lower = 100,
+        niters = 10000,
+        test.ambient = TRUE
+      )
+      
+      #filtering results
+      #Identify cell with FDR < 0.01
+      is_cell <- empty_report$FDR < 0.01
+      is_cell[is.na(is_cell)] <- FALSE # Treat NAs as empty (very low UMIs per drolet)
+      validated_barcodes <- colnames(object)[is_cell] # filtering by validated cells
+      
+      
+      cat("Droplets tested:", ncol(object), "\n")
+      cat("Cells called:", sum(is_cell), 
+          "(", round(sum(is_cell)/ncol(object)*100, 1), "%)\n")
+      cat("Empty droplets removed:", sum(!is_cell), 
+          "(", round(sum(!is_cell)/ncol(object)*100, 1), "%)\n")
+      
+      
+      #filtering the Seurat Object by the validated BardCodes
+      save_raw_counts <- original_mat
+      
+      new_object <- subset(object, cells = validated_barcodes)
+      
+      cat("After Empty Drops:", ncol(new_object), "cells retained\n")
+      
+      
+      return(list(empty_droplets, new_object))
+    },
+    #tryCatch error function will return the original matrix
+    #This part is necessary because the author of the
+    error = function(e) {
+      message("Matrix Already Filtered by CellRanger")
+    }#end of error bracket
+      
+  )# end of tryCatch
+    
+  
+}# end of wrapr function
 ```
 
 ```{r}
-#filtering results
-#filter for cells with FDR < 0.01
-is_cell <- empty_results$FDR < 0.01
-#NA entries are treated as empty
-is_cell[is.na(is_cell)] <- FALSE
-#filte for validated barcodes
-validated_barcodes <- colnames(sce)[is_cell]
+empty_results <- emptyDrops_wrapr(object@assays$RNA@layers$counts, object)
 
+```
 
-# Brief feedback
-cat("Droplets tested:", ncol(sce), "\n")
-cat("Cells called:", sum(is_cell), 
-    "(", round(sum(is_cell)/ncol(sce)*100, 1), "%)\n")
-cat("Empty droplets removed:", sum(!is_cell), 
-    "(", round(sum(!is_cell)/ncol(sce)*100, 1), "%)\n")
+```{r}
 
 ```
