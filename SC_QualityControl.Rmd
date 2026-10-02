@@ -36,13 +36,26 @@ if(!dir.exists(dir)){
 
 ```{r}
 gse141445.obj <- readRDS("./sc_rds_files/gse141445.rds")
+```
 
+```{r}
+#basic dimension reductions not set in stone because these are important
+#For cluster annotation
+tmp_obj <- gse141445.obj
+tmp_obj <- NormalizeData(tmp_obj, verbose=F)
+tmp_obj <- FindVariableFeatures(tmp_obj, nfeatures = 5000, verbose=F)
+tmp_obj <- ScaleData(tmp_obj, verbose = FALSE)
+tmp_obj <- RunPCA(tmp_obj, npcs=15, verbose = FALSE)
+tmp_obj <- FindNeighbors(tmp_obj, dims = 1:15, verbose=F)
+tmp_obj <- FindClusters(tmp_obj, resolution = 0.8, verbose =F)
+sc <- setClusters(sc, setNames(as.character(temp_obj$seurat_clusters), colnames(temp_obj)))
 ```
 
 Estimate Sparsity
 
 ```{r}
 object <- gse141445.obj
+rm(gse141445.obj)
 ```
 
 ```{r}
