@@ -3,3 +3,93 @@ title: "SC_QualityControl"
 output: html_document
 ---
 
+### Library Read In
+
+```{r}
+#Seurat Core
+library(Seurat)
+library(BPCells)
+library(SeuratWrappers)
+library(S4Vectors)
+
+#non-Saitja QC libraries
+library(DropletUtils)
+library(scDblFinder)
+library(SoupX)
+library(SingleCellExperiment)
+
+#Visualizations
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(tidyverse)
+```
+
+```{r}
+overall_dir <- "qc_images"
+if(!dir.exists(dir)){
+  dir.create(glue("./{overall_dir}"))
+}
+```
+
+# GSE141445/Chen, O QC
+
+```{r}
+gse141445.obj <- readRDS("./sc_rds_files/gse141445.rds")
+gse141445.obj
+```
+
+Estimate Sparsity
+
+```{r}
+object <- gse141445.obj
+```
+
+```{r}
+#Calculate Matrix Sparsity
+total_element_wise_counts <- (sum(object@assays$RNA@layers$counts) > 0)
+dims <- (nrow(object) * ncol(object))
+sparsity <- 1 - (total_element_wise_counts / dims)
+
+cat("Matrix sparsity:", round(sparsity * 100, 1), "%\n")
+
+#UMI distribution - bimodal obviously
+umi_counts <- colSums(object@assays$RNA@layers$counts)
+cat("Median UMI per droplet:", median(umi_counts), "\n")
+cat("Droplets with >500 UMI:", sum(umi_counts > 500) , 
+    "(likely cells, will be validated by EmptyDrops)\n")
+```
+
+Empty Droplet Detection
+
+```{r}
+initial_cell_cnt <- dim(object@assays$RNA@layers$counts)[1]
+initial_gene_cnt <- dim(object@assays$RNA@layers$counts)[2]
+
+set.seed(100)
+#lower: Droplets with <100 UMI assumed empty. Depending on the experiment this could change
+#niters: Iterations for specifying the number of iterations to use for the Monte Carlo p-value calculations.
+empty_results <- emptyDrops(m = object@assays$RNA@layers$counts,
+                            lower = 100,
+                            niters = 10000,
+                            test.ambient = TRUE)
+```
+
+```{r}
+#filtering results
+#filter for cells with FDR < 0.01
+is_cell <- empty_results$FDR < 0.01
+#NA entries are treated as empty
+is_cell[is.na(is_cell)] <- FALSE
+#filte for validated barcodes
+validated_barcodes <- colnames(sce)[is_cell]
+
+
+# Brief feedback
+cat("Droplets tested:", ncol(sce), "\n")
+cat("Cells called:", sum(is_cell), 
+    "(", round(sum(is_cell)/ncol(sce)*100, 1), "%)\n")
+cat("Empty droplets removed:", sum(!is_cell), 
+    "(", round(sum(!is_cell)/ncol(sce)*100, 1), "%)\n")
+
+```
