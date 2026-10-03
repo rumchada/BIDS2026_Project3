@@ -24,7 +24,58 @@ library(patchwork)
 library(dplyr)
 library(tidyverse)
 library(glue)
+
+#utility function
+source("utility_scripts.R")
 ```
+
+# QC Strategy
+
+Do the datasets even NEED QC?
+
+For example **GSE141445'**s paper stated that "After standard data processing and quality control procedures (Methods), we obtained transcriptomic profiles for 36,424 cells (Extended Data Fig. 1a)". This portion of cells was uploaded to GEO Accession website so therefore it's unnecessary for further QC. Downsampling further on this dataset could either dampen relevant signals or cut out weaker signals entirely. –\> No
+
+**GSE176031** does need the data processed –\> "Raw single-cell RNA-sequencing FASTQ files and gene expression matrices files generated in this study have been deposited in the Gene Expression Omnibus (GEO) under accession number [GSE176031](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031)" QC is necessary for this even with the cut organoids –\> **Yes check it**
+
+**GSE150692** Although the files say they are clean, it's not clear in the data availability section of the paper. It's work checking –\> **Yes**
+
+**GSE181294:** Data availability states that "processed data can be accessed from NCBI Gene Expression Omnibus datase" however it's not states that QCed data is available. However it's likely that emptydroplets have been taken care of. –\> Check
+
+Resort Automatic Strategies first you've completed the manual Find EmptyDroplets (DropletUtils) Find AmbientRNA (SoupX) Find Doublets (DoubletFinder).
+
+**Manual QC comes after automated Processing when plotting Violin plots and scatterplots look for Bimodal distributions Outliers in scatter plot Reltionships between metrics**
+
+### **Hierarchy of thresholds** 
+
+nFeature_RNA (set threshold) to catch doublets or multiplets above the high threshold and empty droplets on the lower threshold
+
+*nfeature_min / nfeature_max*: set thresholds for the set of cells that contain above a certain number of feature per recorded library (barcode).The purpose of he lower part will exclude potential empty or ambient RNA droplets While the maximum threshold's purpose is to exclude potenital doublets with a lot more unnecessart and possible assessment changing information of UMIs within 1 droplet but is recorded on 1 barcode.
+
+Common thresholds(Check the visuals always)
+
+nfeature_max = 5000
+
+nfeature_min = 500
+
+*ncount_min / ncount_max*: thresholds for the total UMIs within 1 column to determine what a co-encapsulated cell look within the data. This will set threshold at the nCount_RNA data
+
+Common thresholds
+
+ncount_min = 800
+
+ncount_max = 20,000
+
+nCount_RNA vs nFeature_RNA: Helps us to determine the complexity of a cell library *UMI vs Genes Detected (nCount_RNA vs nFeature_RNA)* Poor quality cells are likely to have low genes and UMIs per cell. Good cells/droplets exhbit both higher number of genes per cell and higher numbers of UMIs.
+
+Good Combinations high UMI + high Feature Cnt UMI = high Feature Cnt Bad Combinatons extremely high UMI + extremely high Feature Cnt
+
+*mt-thresh*: Determines what health level the "cells" should be within the droplet. Sometime cells could be in the process of dying out and thus the barcodes will capture mRNA from mitochondria. Ideal is \<5% - 10%. However this is dependent on the purpose of the study. If you're studying DYING CELLs keep it high.
+
+ribosomal-RNA%: High ribosomal percentage is not always "bad". I could indicate activity or specific cell types like plasma stem cells, but trasking it help to detect technical batch effect or hyper-transscribing cell states
+
+Novelty Score ( log10(nFeature)/ log10(nCout))
+
+Captures the ratio of unique genes detected relative to total sequencing depth. Good quality cells generally have values \> 0.80 . Values below $0.70$–$0.75$ indicate low-complexity libraries (e.g., a few overrepresented transcripts, highly degraded samples, or high contamination).
 
 ```{r}
 overall_dir <- "qc_images"
@@ -66,70 +117,15 @@ cat("Droplets with >500 UMI:", sum(umi_counts > 500) ,
 Need to write write description of the empty Droplets functions.
 
 ```{r}
-emptyDrops_wrapr <- function(rna_mat, object) {
-  #use a local variable to save the original matrix in here
-  original_mat <- rna_mat
-  
-  initial_cell_cnt <- dim(original_mat)[1]
-  initial_gene_cnt <- dim(original_mat)[2]
-  
-  #start of tryCatch
-  tryCatch(
-    {
-      set.seed(100)
-      #lower: Droplets with <100 UMI assumed empty. Depending on the experiment this could change
-      #niters: Iterations for specifying the number of iterations to use for the Monte Carlo p-value calculations.
-      empty_report <- emptyDrops(
-        m = rna_mat,
-        lower = 100,
-        niters = 10000,
-        test.ambient = TRUE
-      )
-      
-      #filtering results
-      #Identify cell with FDR < 0.01
-      is_cell <- empty_report$FDR < 0.01
-      is_cell[is.na(is_cell)] <- FALSE # Treat NAs as empty (very low UMIs per drolet)
-      validated_barcodes <- colnames(object)[is_cell] # filtering by validated cells
-      
-      
-      cat("Droplets tested:", ncol(object), "\n")
-      cat("Cells called:", sum(is_cell), 
-          "(", round(sum(is_cell)/ncol(object)*100, 1), "%)\n")
-      cat("Empty droplets removed:", sum(!is_cell), 
-          "(", round(sum(!is_cell)/ncol(object)*100, 1), "%)\n")
-      
-      
-      #
-      save_raw_counts <- original_mat
-      
-      #filtering the Seurat Object by the validated BardCodes
-      new_object <- subset(object, cells = validated_barcodes)
-      
-      cat("After Empty Drops:", ncol(new_object), "cells retained\n")
-      
-      
-      return(list(empty_droplets, new_object))
-    },
-    #tryCatch error function will return the original matrix
-    #This part is necessary because the author of the
-    error = function(e) {
-      message("Matrix Already Filtered by CellRanger")
-      return(original_mat)
-    }#end of error bracket
-      
-  )# end of tryCatch
-    
-  
-}# end of wrapr function
+empty_results <- emptyDrops_wrapr(object@assays$RNA@layers$counts, 
+                                  object,
+                                  lower = 100, 
+                                  niters = 10000)
 ```
 
 ```{r}
-empty_results <- emptyDrops_wrapr(object@assays$RNA@layers$counts, object)
-```
-
-```{r}
-empty_results
+#Matri already filtered by CellRanger
+empty_results <- object@assays$RNA$counts
 ```
 
 ### Setup Channel for SoupX
@@ -146,6 +142,8 @@ rownames(sc$metaData) <- colnames(object)
 ```
 
 Ambient RNA checking
+
+Setting up Temporary Object
 
 ```{r}
 #basic dimension reductions not set in stone because these are important
@@ -213,6 +211,7 @@ Rates \>10% suggest problems with cell loading concentration or the doublet dete
 3\. Mess up differential expression
 
 ```{r}
+#as.SingleCellExperiment expect one layer counts before adding
 object <- JoinLayers(object)
 
 sce <- as.SingleCellExperiment(object)
@@ -221,8 +220,7 @@ set.seed(42)
 suppressWarnings({
   sce <- scDblFinder(sce, 
                      dbr = NULL, 
-                     verbose = FALSE,
-                     clusters = TRUE)
+                     verbose = FALSE)
 })
 
 # Extract results
@@ -249,7 +247,7 @@ p3 <- DimPlot(
 ```
 
 ```{r}
-table(truth=sce$type, call=sce$scDblFinder.class)
+p3
 ```
 
 ```{r}
@@ -320,40 +318,84 @@ p_scatter <- p5 + p6 + p7
 p_scatter
 ```
 
-*QC Strategy*
+# GSE176031/Song, H Download
 
-Manual QC First when plotting Violin plots and scatterplots look for Bimodal distributions Outliers in scatter plot Reltionships between metrics
+```{r}
+gse176031.obj <- readRDS("./sc_rds_files/gse176031.rds")
+```
 
-Hierarchy of thresholds
+Running Empty Drops
 
-nFeature_RNA (set threshold) to catch doublets or multiplets above the high threshold and empty droplets on the lower threshold
+```{r}
+empty_results <- emptyDrops_wrapr(gse176031.obj@assays$RNA@layers$counts, 
+                                  object,
+                                  lower = 100, 
+                                  niters = 10000)
+```
 
-*nfeature_min / nfeature_max*: set thresholds for the set of cells that contain above a certain number of feature per recorded library (barcode).The purpose of he lower part will exclude potential empty or ambient RNA droplets While the maximum threshold's purpose is to exclude potenital doublets with a lot more unnecessart and possible assessment changing information of UMIs within 1 droplet but is recorded on 1 barcode.
+```{r}
+object <- gse176031.obj
+```
 
-Common thresholds(Check the visuals always)
+```{r}
+#Calculate Matrix Sparsity
+total_element_wise_counts <- (sum(object@assays$RNA@layers$counts) > 0)
+dims <- (nrow(object) * ncol(object))
+sparsity <- 1 - (total_element_wise_counts / dims)
 
-nfeature_max = 5000
+cat("Matrix sparsity:", round(sparsity * 100, 1), "%\n")
 
-nfeature_min = 500
+#UMI distribution - bimodal obviously
+umi_counts <- colSums(object@assays$RNA@layers$counts)
+cat("Median UMI per droplet:", median(umi_counts), "\n")
+cat("Droplets with >500 UMI:", sum(umi_counts > 500) , 
+    "(likely cells, will be validated by EmptyDrops)\n")
+```
 
-*ncount_min / ncount_max*: thresholds for the total UMIs within 1 column to determine what a co-encapsulated cell look within the data. This will set threshold at the nCount_RNA data
+```{r}
+#basic dimension reductions not set in stone because these are important
+#For cluster annotation
+object <- NormalizeData(object, verbose=F)
+object <- FindVariableFeatures(object, nfeatures = 5000, verbose=F)
+object <- ScaleData(object, verbose = FALSE)
+object <- RunPCA(object, npcs=15, verbose = FALSE)
+object <- FindNeighbors(object, dims = 1:15, verbose=F)
+object <- FindClusters(object, resolution = 0.8, verbose =F)
+object <- RunUMAP(object, dims = 1:15, verbose=F)
+```
 
-Common thresholds
+```{r}
+#as.SingleCellExperiment expect one layer counts before adding
+tmp_obj <- JoinLayers(tmp_obj)
 
-ncount_min = 800
+sce <- as.SingleCellExperiment(tmp_obj)
 
-ncount_max = 20,000
+set.seed(42)
+suppressWarnings({
+  sce <- scDblFinder(sce, 
+                     dbr = NULL, 
+                     verbose = FALSE)
+})
 
-nCount_RNA vs nFeature_RNA: Helps us to determine the complexity of a cell library *UMI vs Genes Detected (nCount_RNA vs nFeature_RNA)* Poor quality cells are likely to have low genes and UMIs per cell. Good cells/droplets exhbit both higher number of genes per cell and higher numbers of UMIs.
+# Extract results
+tmp_obj$doublet_class <- ifelse(sce$scDblFinder.class == "doublet", "Doublet", "Singlet")
+tmp_obj$doublet_score <- sce$scDblFinder.score
 
-Good Combinations high UMI + high Feature Cnt UMI = high Feature Cnt Bad Combinatons extremely high UMI + extremely high Feature Cnt
+#Tracking cells before doublet removal for QC summary
+n_doublets <- sum(tmp_obj$doublet_class == "Doublet")
+doublet_rate <- n_doublets / ncol(tmp_obj) * 100
+cat("Doublets:", n_doublets, "(", round(doublet_rate, 1), "%)\n")
 
-*mt-thresh*: Determines what health level the "cells" should be within the droplet. Sometime cells could be in the process of dying out and thus the barcodes will capture mRNA from mitochondria. Ideal is \<5% - 10%. However this is dependent on the purpose of the study. If you're studying DYING CELLs keep it high.
+cells_before_doublet_removal <- ncol(tmp_obj)
+cat("Cells before doouble removal:", cells_before_doublet_removal)
 
-ribosomal-RNA%: High ribosomal percentage is not always "bad". I could indicate activity or specific cell types like plasma stem cells, but trasking it help to detect technical batch effect or hyper-transscribing cell states
-
-Novelty Score ( log10(nFeature)/ log10(nCout))
-
-Captures the ratio of unique genes detected relative to total sequencing depth. Good quality cells generally have values \> 0.80 . Values below $0.70$–$0.75$ indicate low-complexity libraries (e.g., a few overrepresented transcripts, highly degraded samples, or high contamination).
-
-Resort Automatic Strategies AFTER you've completed the manual Find EmptyDroplets (DropletUtils) Find AmbientRNA (SoupX) Find Doublets (DoubletFinder)
+p3 <- DimPlot(
+  tmp_obj,
+  reduction = "umap",
+  group.by = "doublet_class",
+  cols = c("Singlet" = "#90E0EF", "Doublet" = "#EF233C"),
+  pt.size = 1
+) +
+  labs(title = paste0("Doublet Detection (", round(doublet_rate, 1), "%)")) +
+  theme(plot.title = element_text(face = "bold", size = 14))
+```
