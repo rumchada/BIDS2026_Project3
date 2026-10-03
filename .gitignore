@@ -33,6 +33,8 @@ downstream_results/
 post_processed_data/
 Project_2/GDCdata/
 Project_1/downstream_results/*.RData
+qc_images/
+project_papers/
 
 
 # R / Python junk
