@@ -91,6 +91,10 @@ if(!dir.exists(overall_dir)){
 gse141445.obj <- readRDS("./sc_rds_files/gse141445.rds")
 ```
 
+```{r}
+colnames(gse141445.obj)[1:10]
+```
+
 Estimate Sparsity
 
 ```{r}
@@ -353,6 +357,24 @@ cat("Droplets with >500 UMI:", sum(umi_counts > 500) ,
 ```
 
 ```{r}
+object@assays$RNA@cells
+```
+
+```{r}
+length(colnames(object))
+length(rownames(object@meta.data))
+identical(colnames(object), rownames(object@meta.data))
+setequal(colnames(object), rownames(object@meta.data))
+
+
+length(colnames(object[["RNA"]]))
+nrow(object@meta.data)
+
+identical(colnames(object[["RNA"]]), rownames(object@meta.data))
+```
+
+```{r}
+DefaultAssay(object) <- "RNA"
 #basic dimension reductions not set in stone because these are important
 #For cluster annotation
 object <- NormalizeData(object, verbose=F)

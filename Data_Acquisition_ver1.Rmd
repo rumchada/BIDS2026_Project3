@@ -539,18 +539,6 @@ rm(cnt_mats_common_176031, cnt_mats_176031)
 ```
 
 ```{r}
-```
-
-```{r}
-```
-
-```{r}
-```
-
-```{r}
-```
-
-```{r}
 gc()
 ```
 
@@ -605,7 +593,7 @@ gse176031.obj@meta.data <- left_join(gse176031.obj@meta.data, meta_176031, by = 
 ```
 
 ```{r}
-gse176031.obj@meta.data
+rownames(gse176031.obj@meta.data) <- result
 ```
 
 ```{r}
