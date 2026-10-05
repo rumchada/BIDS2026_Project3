@@ -79,50 +79,50 @@ Papers that could help:
 - [GSE1201716(Henry et. al., 2018)
   (Adj.N)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716)
 
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
-|              | Author(s)                                                            | Organism(s) | Condition(s) | Cell   | Lib Prep  | Availability  | Clinical     |
-|              |                                                                      |             |              | Cnt    | Protocol  | Format        | Data         |
-+==============+======================================================================+=============+==============+========+===========+===============+==============+
-| GSE141445    | [(Chen et. al.,                                                      | Human       | PRAD         | 36,424 | 10x       | series_matrix | available,   |
-|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |             |              |        | Chromium  |               | but sparse   |
-|              |                                                                      |             |              |        | V2        |               |              |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
-| GSE176031    | [(Song, H                                                            | Human       | Paired       | 21,743 | Seq-Well  | series_matrix | available,   |
-|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |             | (AdjNorm +   |        |           |               | but sparse   |
-|              |                                                                      |             | PRAD)        |        |           |               | and          |
-|              |                                                                      |             |              |        |           |               | inconsistent |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
-| GSE150692    | [(Crowley,                                                           | Human / Mus | PRAD         |        | Chromium  | series_matrix | sparse but   |
-|              | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) | Musculus    |              |        | Single    |               | available    |
-|              |                                                                      |             |              |        | Cell 5’   |               |              |
-|              |                                                                      | "orthotopic |              |        | Kit       |               | only         |
-|              |                                                                      | 6694c2      |              |        |           |               |              |
-|              |                                                                      | pancreatic  |              |        | DO NOT    |               | 1 out of     |
-|              |                                                                      | tumors"     |              |        | USE       |               | three has    |
-|              |                                                                      |             |              |        |           |               | useful       |
-|              |                                                                      |             |              |        |           |               | clinical     |
-|              |                                                                      |             |              |        |           |               | data.        |
-|              |                                                                      |             |              |        |           |               |              |
-|              |                                                                      |             |              |        |           |               | Not worth    |
-|              |                                                                      |             |              |        |           |               | trying to    |
-|              |                                                                      |             |              |        |           |               | use the      |
-|              |                                                                      |             |              |        |           |               | clinical     |
-|              |                                                                      |             |              |        |           |               | data         |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
-| EGAD01008340 | [(Tuang et. al,                                                      | Human       | Paired (PRAD |        |           | .fast_files   | not          |
-|              | 2021)](https://ega-archive.org/datasets/EGAD00001008340)             |             | / N. Adj)    |        |           |               | available    |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
-| GSE181294    | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human       | Paired (PRAD |        | slide-seq | series matrix | available:   |
-|              | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |             | / N. Adj)    |        |           |               |              |
-|              |                                                                      |             |              |        |           | Not possible  | condition,   |
-|              |                                                                      |             |              |        |           | too big even  | age,         |
-|              |                                                                      |             |              |        |           | for the big   | gleason,     |
-|              |                                                                      |             |              |        |           | computer      | grade,       |
-|              |                                                                      |             |              |        |           |               | tissue       |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
-| GSE120716    | [(Henry et. al.,                                                     | Human       | N. Adj       |        |           | series matrix |              |
-|              | 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716) |             |              |        |           | file          |              |
-+--------------+----------------------------------------------------------------------+-------------+--------------+--------+-----------+---------------+--------------+
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+|              | Author(s)                                                            | Organism(s) | Condition(s) | Cell Cnt | Lib Prep  | Availability  | Clinical     |
+|              |                                                                      |             |              |          | Protocol  | Format        | Data         |
++==============+======================================================================+=============+==============+==========+===========+===============+==============+
+| GSE141445    | [(Chen et. al.,                                                      | Human       | PRAD         | 36,424   | 10x       | series_matrix | available,   |
+|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE141445) |             |              |          | Chromium  |               | but sparse   |
+|              |                                                                      |             |              |          | V2        |               |              |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE176031    | [(Song, H                                                            | Human       | Paired       | 21,743   | Seq-Well  | series_matrix | available,   |
+|              | 2021)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE176031) |             | (AdjNorm +   |          |           |               | but sparse   |
+|              |                                                                      |             | PRAD)        |          |           |               | and          |
+|              |                                                                      |             |              |          |           |               | inconsistent |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE150692    | [(Crowley,                                                           | Human / Mus | PRAD         |          | Chromium  | series_matrix | sparse but   |
+|              | 2020)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692) | Musculus    |              |          | Single    |               | available    |
+|              |                                                                      |             |              |          | Cell 5’   |               |              |
+|              |                                                                      | "orthotopic |              |          | Kit       |               | only         |
+|              |                                                                      | 6694c2      |              |          |           |               |              |
+|              |                                                                      | pancreatic  |              |          | DO NOT    |               | 1 out of     |
+|              |                                                                      | tumors"     |              |          | USE       |               | three has    |
+|              |                                                                      |             |              |          |           |               | useful       |
+|              |                                                                      |             |              |          |           |               | clinical     |
+|              |                                                                      |             |              |          |           |               | data.        |
+|              |                                                                      |             |              |          |           |               |              |
+|              |                                                                      |             |              |          |           |               | Not worth    |
+|              |                                                                      |             |              |          |           |               | trying to    |
+|              |                                                                      |             |              |          |           |               | use the      |
+|              |                                                                      |             |              |          |           |               | clinical     |
+|              |                                                                      |             |              |          |           |               | data         |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| EGAD01008340 | [(Tuang et. al,                                                      | Human       | Paired (PRAD |          |           | .fast_files   | not          |
+|              | 2021)](https://ega-archive.org/datasets/EGAD00001008340)             |             | / N. Adj)    |          |           |               | available    |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE181294    | [(](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi)[Chen et. al.,    | Human       | Paired (PRAD |          | slide-seq | series matrix | available:   |
+|              | 2023)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294) |             | / N. Adj)    |          |           |               |              |
+|              |                                                                      |             |              |          |           | Not possible  | condition,   |
+|              |                                                                      |             |              |          |           | too big even  | age,         |
+|              |                                                                      |             |              |          |           | for the big   | gleason,     |
+|              |                                                                      |             |              |          |           | computer      | grade,       |
+|              |                                                                      |             |              |          |           |               | tissue       |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
+| GSE120716    | [(Henry et. al.,                                                     | Human       | N. Adj       |          |           | series matrix |              |
+|              | 2018)](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE120716) |             |              |          |           | file          |              |
++--------------+----------------------------------------------------------------------+-------------+--------------+----------+-----------+---------------+--------------+
 
 # GSE141445/Chen, O Download
 
@@ -521,7 +521,9 @@ demarcation. Then will harmonize the genes asayed for each sample to
 column bind them into one matrix.
 
 ```{r}
-common_features_176031 <- Reduce(union, lapply(cnt_mats_176031, rownames))
+#iF WE DO UNION THEN THAT WILL BALLOON THE SIZE OF sEURAT oBJECT TO
+# 6.5GB PRRIOR TO DIM REDUCTION
+common_features_176031 <- Reduce(intersect, lapply(cnt_mats_176031, rownames))
 length(common_features_176031)
 
 cnt_mats_common_176031 <- lapply(

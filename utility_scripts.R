@@ -50,6 +50,7 @@ emptyDrops_wrapr <- function(rna_mat = rna_mat,
     #tryCatch error function will return the original matrix
     #This part is necessary because the author of the
     error = function(e) {
+      message("Warning", e)
       message("Matrix Already Filtered by CellRanger")
       return(original_mat)
     }#end of error bracket
@@ -58,3 +59,16 @@ emptyDrops_wrapr <- function(rna_mat = rna_mat,
   
   
 }# end of wrapr function
+
+
+
+gg_patchwork <- function(plot, filename, width = 8, height = 6, dpi = 300, ...) {
+  if (!grepl("\\.png$", filename, ignore.case = TRUE)) {
+    filename <- paste0(filename, ".png")
+  }
+  # Open a device and print the plot explicitly to bypass RStudio window constraints
+  grDevices::png(filename, width = width, height = height, units = "in", res = dpi)
+  print(plot)  # works for ggplot OR patchwork
+  dev.off()
+  message("Saved: ", normalizePath(filename))
+}

@@ -29,6 +29,10 @@ library(glue)
 source("utility_scripts.R")
 ```
 
+nfeature: represents the total number of unique genes detected in each individual cell
+
+nCount: total sum of all UMI counts detected across all genes within that cell
+
 # QC Strategy
 
 Do the datasets even NEED QC?
@@ -338,7 +342,7 @@ empty_results <- emptyDrops_wrapr(gse176031.obj@assays$RNA@layers$counts,
 ```
 
 ```{r}
-object <- gse176031.obj
+empty_results$
 ```
 
 ### Checking Sparsity
@@ -513,13 +517,17 @@ mt.counts[is.na(gse176031.obj$percent.mt)]
 ```
 
 ```{r}
+gse176031.obj@meta.data
+```
+
+```{r}
 cells <- names(gse176031.obj$percent.mt[
   is.na(gse176031.obj$percent.mt)
 ])
 
 gse176031.obj@meta.data[cells, ]
 
-gse176031.obj[["RNA"]]@counts[, cells[1:3]][1:20, ]
+gse176031.obj@assays$RNA$counts[, cells]
 ```
 
 ```{r}
@@ -542,4 +550,191 @@ cat("  Median:", round(median(gse176031.obj$percent.mt), 2), "%",
 cat("percent.ribo:\n")
 cat("  Median:", round(median(gse176031.obj$percent.ribo), 2), "%\n"){r}
 
+```
+
+Yes QC is most definitely necessary for this dataset. Although I am unsure of the cause currently. Is it because of native empty cells or was it method the Seurat Object was construcuted.
+
+```{r}
+
+p4 <- VlnPlot(
+  gse176031.obj,
+  features =c("nCount_RNA", "nFeature_RNA", "percent.mt", "percent.ribo"),
+  ncol = 4,
+  pt.size = 0.1
+) + theme(plot.title = element_text(face = "bold"))
+p4
+file_1 <-  "./qc_images/gse176031_UMI_Feature_MT_scatters.png"
+gg_patchwork(p4, file_1)
+
+
+
+p5 <- FeatureScatter(gse176031.obj, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
+  labs(title = "UMI vs Genes Detected")
+
+p6 <- FeatureScatter(gse176031.obj, feature1 = "nCount_RNA", feature2 = "percent.mt") +
+  labs(title = "UMI vs Mitochondrial %")
+
+p7 <- FeatureScatter(gse176031.obj, feature1 = "percent.mt", feature2 = "percent.ribo") +
+  labs(title = "Mitochondrial % vs Ribosomal %")
+
+p_scatter <- p5 + p6 + p7
+p_scatter
+
+file_2 <- "./qc_images/gse176031_relation_scatters.png"
+gg_patchwork(p_scatter, file_2)
+```
+
+QC is required for this dataset
+
+**What was found:**
+
+25 cells are completelty empty, EmptyDropper returned 23,000 cells are considerd "empty" which makes no sense but we definitely know at least 30 are empty
+
+### Cell Based Filtering
+
+nfeature: represents the total number of unique genes detected in each individual cell
+
+nCount: total sum of all UMI counts detected across all genes within that cell
+
+```{r}
+#
+nfeature_min <- 200
+  
+nfeature_max <- 7500
+
+ncount_min <- 500
+
+ncount_max <- 55000
+  
+mt_thresh <- 10
+```
+
+```{r}
+# Visualize thresholds on data
+qc_df <- data.frame(
+  nCount_RNA = gse176031.obj$nCount_RNA,
+  nFeature_RNA = gse176031.obj$nFeature_RNA,
+  percent.mt = gse176031.obj$percent.mt
+)
+
+qc_df$pass_qc <- (
+  qc_df$nCount_RNA >= ncount_min &
+    qc_df$nCount_RNA <= ncount_max &
+    qc_df$nFeature_RNA >= nfeature_min &
+    qc_df$nFeature_RNA <= nfeature_max &
+    qc_df$percent.mt < mt_thresh
+)
+
+p8 <- ggplot(qc_df, aes(x = log10(nCount_RNA + 1), y = log10(nFeature_RNA + 1), 
+                        color = pass_qc)) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_vline(xintercept = log10(c(ncount_min, ncount_max)), 
+             linetype = "dashed", color = "red") +
+  geom_hline(yintercept = log10(c(nfeature_min, nfeature_max)), 
+             linetype = "dashed", color = "red") +
+  scale_color_manual(values = c("TRUE" = "#06D6A0", "FALSE" = "#EF476F")) +
+  
+  labs(
+    title = "Cell Filtering Thresholds",
+    subtitle = paste0(
+      sum(qc_df$pass_qc), " cells pass QC (",
+      round(sum(qc_df$pass_qc) / nrow(qc_df) * 100, 1), "%). ",
+      "If thresholds are applied, ",
+      nrow(qc_df) - sum(qc_df$pass_qc),
+      " cells (",
+      round((1 - sum(qc_df$pass_qc) / nrow(qc_df)) * 100, 1),
+      "%) will be erased."
+    ),
+
+    x = "log10(UMI + 1)",
+    y = "log10(Genes + 1)",
+    color = "Pass QC"
+  ) +
+  theme_classic()
+```
+
+The reported post QC cell count was \~21,000 using all the samples (6 Prostate biopsies, 4 radical prostatectomies with tumor-only, 4 radical prostatectomies with matched normal samples from 4 patients (n=8), 7 Organoid samples derived from Patients). Safe to say their assays were not in good shape. Ideally post QC should have a lot more.
+
+```{r}
+p8
+```
+
+**Current Thresholds:**
+
+**nfeature_min** \<- 200: lenient threshold adjusted using **log10(UMI +1) vs log10(Genes + 1)**
+
+**nfeature_max** \<- 7500: informed by initial scatter plot **(UMI vs Genes Detected)**
+
+**ncount_min** \<- 600 lenient threshold adjusted using **log10(UMI +1) vs log10(Genes + 1)**
+
+**ncount_max** \<- 75000: informed by initial scatter plot **(UMI vs Genes Detected)**
+
+**mt_thresh** \<- 5, informed by **UMI vs Mitochondrial %** scatter plot
+
+The reported post QC cell count was \~21,000 from the paper using all the samples (6 Prostate biopsies, 4 radical prostatectomies with tumor-only, 4 radical prostatectomies with matched normal samples from 4 patients (n=8), 7 Organoid samples derived from Patients). Safe to say their 10XChromium experiments were not in good shape. Ideally post QC should have a lot more.
+
+### Subsetting After Filtering
+
+```{r}
+nfeature_min <- 200
+
+nfeature_max <- 7500
+
+ncount_min <- 500
+
+ncount_max <- 55000
+
+mt_thresh <- 10
+cat("Set thresholds (adjust based on YOUR data):\n")
+cat("  nFeature_RNA: [", nfeature_min, ",", nfeature_max, "]\n")
+cat("  nCount_RNA: [", ncount_min, ",", ncount_max, "]\n")
+cat("  percent.mt: <", mt_thresh, "%\n\n")
+
+cat("Guidelines for threshold setting:\n")
+cat("  • nFeature_RNA min: Where does the low-quality tail end? (typically 500-1000)\n")
+cat("  • nFeature_RNA max: Where do potential doublets start? (typically 4000-7000)\n")
+cat("  • percent.mt: PBMCs <10%, Brain <5%, Tumor <20%\n")
+cat("  • If distributions are bimodal, set threshold between modes\n")
+cat("  • Aim to remove no more than 25% of cells \n\n")
+
+
+```
+
+### GeneBased Filtering
+
+```{r}
+# Calculate gene detection
+counts_matrix <- LayerData(gse176031.obj, layer = "counts")
+gene_detection <- rowSums(counts_matrix > 0)
+
+gene_qc <- data.frame(
+  gene = rownames(gse176031.obj),
+  n_cells_detected = gene_detection,
+  pct_cells_detected = (gene_detection / ncol(gse176031.obj)) * 100,
+  is_mt = grepl("^MT-", rownames(gse176031.obj)),
+  is_ribo = grepl("^RP[SL]", rownames(gse176031.obj)),
+  is_hb = grepl("^HB[AB]", rownames(gse176031.obj))
+)
+
+cat("Total genes:", nrow(gene_qc), "\n")
+cat("MT genes:", sum(gene_qc$is_mt), 
+    "| Ribo genes:", sum(gene_qc$is_ribo), 
+    "| Hb genes:", sum(gene_qc$is_hb), "\n\n")
+
+# Visualize gene detection
+p9 <- ggplot(gene_qc, aes(x = pct_cells_detected)) +
+  geom_histogram(bins = 50, fill = "#118AB2", alpha = 0.7) +
+  geom_vline(xintercept = 0.1, linetype = "dashed", color = "red") +
+  scale_x_log10() +
+  labs(
+    title = "Gene Detection Across Cells",
+    subtitle = "Red line: 0.1% of cells threshold",
+    x = "% of Cells Expressing Gene (log scale)",
+    y = "Number of Genes"
+  ) +
+  theme_classic()
+```
+
+```{r}
+p9
 ```
