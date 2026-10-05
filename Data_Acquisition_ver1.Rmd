@@ -340,6 +340,8 @@ MetaData columns:
 **MetaData Columns: (orig.ident, sample_title, disease state, patientID
 (if possible))**
 
+### Downloading Data
+
 ```{r}
 library(GEOquery)
 #enter in GSE141445
@@ -519,7 +521,7 @@ demarcation. Then will harmonize the genes asayed for each sample to
 column bind them into one matrix.
 
 ```{r}
-common_features_176031 <- Reduce(intersect, lapply(cnt_mats_176031, rownames))
+common_features_176031 <- Reduce(union, lapply(cnt_mats_176031, rownames))
 length(common_features_176031)
 
 cnt_mats_common_176031 <- lapply(
@@ -556,6 +558,25 @@ any(is.na(colnames(count_matrix_176031)))
 any(colnames(count_matrix_176031) == "")
 ```
 
+Editing Rownames before reading into the Seurat
+
+```{r}
+#you can't edit Cell Names within the assay after creating the Seurat object
+assay_colnames <- colnames(count_matrix_176031)
+
+#seperating the cell_names from the GSMXXXXX sample title
+sample_title <- sub("\\..*", "", assay_colnames)
+
+# this will address the inter library non-unique scenario
+non_unique_barcodes <- sub("^[^.]*\\.", "", assay_colnames)
+
+n <- ave( non_unique_barcodes, non_unique_barcodes, FUN = seq_along)
+
+result <- paste0(non_unique_barcodes, ".", n)
+
+colnames(count_matrix_176031) <- result
+```
+
 ### Editing Seurat Meta-Data
 
 ```{r}
@@ -564,24 +585,10 @@ rm(count_matrix_176031)
 gse176031.obj@meta.data$orig.ident <- "Song2021"
 gse176031.obj@meta.data$geo_acc <- "GSE176031"
 
-#extractig the cell names
-cell_names <-  rownames(gse176031.obj@meta.data)
-
-#seperating the cell_names from the GSMXXXXX sample title
-sample_title <- sub("\\..*", "", cell_names)
-
-
 gse176031.obj@meta.data$sample_title  <- sample_title
 
-# this will address the inter library non-unique scenario
-non_unique_barcodes <- sub("^[^.]*\\.", "", cell_names)
-
-n <- ave( non_unique_barcodes, non_unique_barcodes, FUN = seq_along)
-
-result <- paste0(non_unique_barcodes, ".", n)
-
-rownames(gse176031.obj@meta.data) <- result
-
+#Barcode IDs are changed in the meta.data
+#but we need to address the data within Assay as well
 gse176031.obj@meta.data <- gse176031.obj@meta.data %>%
   mutate(condition = str_extract(sample_title, "(?<=_).*")) %>%
   mutate(sample = str_extract(sample_title, "^[^_]+")) %>%
@@ -593,6 +600,8 @@ gse176031.obj@meta.data <- left_join(gse176031.obj@meta.data, meta_176031, by = 
 ```
 
 ```{r}
+DefaultAssay(gse176031.obj) <- "RNA"
+length(colnames(gse176031.obj)) == length(result)
 rownames(gse176031.obj@meta.data) <- result
 ```
 
@@ -601,7 +610,12 @@ saveRDS(gse176031.obj, "./sc_rds_files/gse176031.rds")
 ```
 
 ```{r}
-rm(cnt_mats_176031, cnt_mats_common_176031, count_matrix_176031, meta_176031)
+rm(cnt_mats_176031, 
+   cnt_mats_common_176031, 
+   count_matrix_176031, 
+   meta_176031, 
+   gse_176031,
+   gse176031.obj)
 ```
 
 Problem: The authors stated that they had \~21,000 cells after QC.

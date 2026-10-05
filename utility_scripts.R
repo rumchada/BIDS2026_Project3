@@ -51,6 +51,7 @@ emptyDrops_wrapr <- function(rna_mat = rna_mat,
     #This part is necessary because the author of the
     error = function(e) {
       message("Matrix Already Filtered by CellRanger")
+      return(original_mat)
     }#end of error bracket
     
   )# end of tryCatch

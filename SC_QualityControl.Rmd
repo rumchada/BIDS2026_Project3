@@ -45,7 +45,7 @@ Resort Automatic Strategies first you've completed the manual Find EmptyDroplets
 
 **Manual QC comes after automated Processing when plotting Violin plots and scatterplots look for Bimodal distributions Outliers in scatter plot Reltionships between metrics**
 
-### **Hierarchy of thresholds** 
+### **Hierarchy of thresholds**
 
 nFeature_RNA (set threshold) to catch doublets or multiplets above the high threshold and empty droplets on the lower threshold
 
@@ -328,7 +328,7 @@ p_scatter
 gse176031.obj <- readRDS("./sc_rds_files/gse176031.rds")
 ```
 
-Running Empty Drops
+### Running Empty Drops
 
 ```{r}
 empty_results <- emptyDrops_wrapr(gse176031.obj@assays$RNA@layers$counts, 
@@ -340,6 +340,8 @@ empty_results <- emptyDrops_wrapr(gse176031.obj@assays$RNA@layers$counts,
 ```{r}
 object <- gse176031.obj
 ```
+
+### Checking Sparsity
 
 ```{r}
 #Calculate Matrix Sparsity
@@ -374,6 +376,22 @@ identical(colnames(object[["RNA"]]), rownames(object@meta.data))
 ```
 
 ```{r}
+colnames(object[["RNA"]])[1:10]
+rownames(object@meta.data)[1:10]
+```
+
+### Checking Ambient RNA
+
+```{r}
+#Prepare SoupX channel
+#tod (table of droplets) = raw counts from ALL droplets
+#toc (table of cells) = filtered counts from validation cells only
+sc <- SoupChannel(tod = object@assays$RNA$counts, 
+                  toc = empty_results)
+rownames(sc$metaData) <- colnames(object)
+```
+
+```{r}
 DefaultAssay(object) <- "RNA"
 #basic dimension reductions not set in stone because these are important
 #For cluster annotation
@@ -384,13 +402,55 @@ object <- RunPCA(object, npcs=15, verbose = FALSE)
 object <- FindNeighbors(object, dims = 1:15, verbose=F)
 object <- FindClusters(object, resolution = 0.8, verbose =F)
 object <- RunUMAP(object, dims = 1:15, verbose=F)
+
+
+
+barcode_cluster <- setNames(as.character(object$seurat_clusters), colnames(object))
+#setting clusters in the meta-data object
+sc <- setClusters(sc, barcode_cluster)
 ```
 
 ```{r}
-#as.SingleCellExperiment expect one layer counts before adding
-tmp_obj <- JoinLayers(tmp_obj)
 
-sce <- as.SingleCellExperiment(tmp_obj)
+sc <- tryCatch({
+  autoEstCont(sc, verbose = FALSE)
+}, error = function(e) {
+  cat("Note: autoEstCont failed\n")
+  sc$fit$rho <- NULL
+  return(sc)
+})
+
+contamination_fraction <- sc$fit$rho
+
+# Check contamination level
+cat("Contamination fraction:", 
+    ifelse(is.null(contamination_fraction), "NULL (very clean sample)", 
+           paste0(round(contamination_fraction * 100, 2), "%")), "\n")
+
+# Decision: Skip or correct based on contamination level
+if (is.null(contamination_fraction) || contamination_fraction < 0.05) {
+  cat("→ Contamination is NULL or <5% - skipping SoupX correction\n")
+  cat("   Your sample is clean! Proceeding with original counts.\n")
+} else {
+  cat("→ Contamination is", round(contamination_fraction * 100, 2), "% (≥5%)\n")
+  cat("   Applying SoupX correction...\n")
+  
+  # Apply correction
+  suppressWarnings({
+    corrected_counts <- adjustCounts(sc)
+  })
+  object <- SetAssayData(object, layer = "counts", new.data = corrected_counts)
+  cat("   ✓ SoupX correction applied\n")
+}
+```
+
+### Checking Doublets
+
+```{r}
+#as.SingleCellExperiment expect one layer counts before adding
+object <- JoinLayers(object)
+
+sce <- as.SingleCellExperiment(object)
 
 set.seed(42)
 suppressWarnings({
@@ -400,19 +460,19 @@ suppressWarnings({
 })
 
 # Extract results
-tmp_obj$doublet_class <- ifelse(sce$scDblFinder.class == "doublet", "Doublet", "Singlet")
-tmp_obj$doublet_score <- sce$scDblFinder.score
+object$doublet_class <- ifelse(sce$scDblFinder.class == "doublet", "Doublet", "Singlet")
+object$doublet_score <- sce$scDblFinder.score
 
 #Tracking cells before doublet removal for QC summary
-n_doublets <- sum(tmp_obj$doublet_class == "Doublet")
-doublet_rate <- n_doublets / ncol(tmp_obj) * 100
+n_doublets <- sum(object$doublet_class == "Doublet")
+doublet_rate <- n_doublets / ncol(object) * 100
 cat("Doublets:", n_doublets, "(", round(doublet_rate, 1), "%)\n")
 
-cells_before_doublet_removal <- ncol(tmp_obj)
+cells_before_doublet_removal <- ncol(object)
 cat("Cells before doouble removal:", cells_before_doublet_removal)
 
 p3 <- DimPlot(
-  tmp_obj,
+  object,
   reduction = "umap",
   group.by = "doublet_class",
   cols = c("Singlet" = "#90E0EF", "Doublet" = "#EF233C"),
@@ -420,4 +480,66 @@ p3 <- DimPlot(
 ) +
   labs(title = paste0("Doublet Detection (", round(doublet_rate, 1), "%)")) +
   theme(plot.title = element_text(face = "bold", size = 14))
+
+p3
+```
+
+### Manual QC Review
+
+```{r}
+# Calculate QC metrics
+
+#percentage of mitochondrial RNA counts
+#calculate percentageof mitochondrial RNA per barcode
+gse176031.obj[["percent.mt"]] <- PercentageFeatureSet(gse176031.obj, pattern = "^MT-")
+#percentage of ribosomal RNA counts
+gse176031.obj[["percent.ribo"]] <- PercentageFeatureSet(gse176031.obj, pattern = "^RP[SL]")
+#What is the complexity of each cell library
+gse176031.obj$log10GenesPerUMI <- log10(gse176031.obj$nFeature_RNA) / log10(gse176031.obj$nCount_RNA)
+```
+
+```{r}
+grep("^MT-", rownames(gse176031.obj), value = TRUE)
+
+mt.genes <- grep("^MT-", rownames(gse176031.obj), value = TRUE)
+
+mt.counts <- Matrix::colSums(
+  GetAssayData(gse176031.obj, assay = DefaultAssay(gse176031.obj), layer = "counts")[mt.genes, , drop = FALSE]
+)
+
+summary(mt.counts)
+
+mt.counts[is.na(gse176031.obj$percent.mt)]
+```
+
+```{r}
+cells <- names(gse176031.obj$percent.mt[
+  is.na(gse176031.obj$percent.mt)
+])
+
+gse176031.obj@meta.data[cells, ]
+
+gse176031.obj[["RNA"]]@counts[, cells[1:3]][1:20, ]
+```
+
+```{r}
+# Summary statistics to guide threshold setting
+cat("\nQC Metric Distributions:\n")
+cat("nCount_RNA (UMI):\n")
+cat("  Median:", median(gse176031.obj$nCount_RNA), 
+    "| Q1-Q3:", quantile(gse176031.obj$nCount_RNA, 0.25), "-", 
+    quantile(gse176031.obj$nCount_RNA, 0.75), "\n")
+
+cat("nFeature_RNA (genes):\n")
+cat("  Median:", median(gse176031.obj$nFeature_RNA),
+    "| Q1-Q3:", quantile(gse176031.obj$nFeature_RNA, 0.25), "-",
+    quantile(gse176031.obj$nFeature_RNA, 0.75), "\n")
+
+cat("percent.mt:\n")
+cat("  Median:", round(median(gse176031.obj$percent.mt), 2), "%",
+    "| 95th percentile:", round(quantile(gse176031.obj$percent.mt, 0.95), 2), "%\n")
+
+cat("percent.ribo:\n")
+cat("  Median:", round(median(gse176031.obj$percent.ribo), 2), "%\n"){r}
+
 ```
