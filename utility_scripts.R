@@ -45,7 +45,8 @@ emptyDrops_wrapr <- function(rna_mat = rna_mat,
       cat("After Empty Drops:", ncol(new_object), "cells retained\n")
       
       
-      return(list(empty_droplets, new_object))
+      return(list(report = empty_report, 
+                  subset_object = new_object))
     },
     #tryCatch error function will return the original matrix
     #This part is necessary because the author of the
