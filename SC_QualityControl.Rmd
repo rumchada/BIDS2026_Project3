@@ -738,3 +738,132 @@ p9 <- ggplot(gene_qc, aes(x = pct_cells_detected)) +
 ```{r}
 p9
 ```
+
+# [GSE150692 (Crowley, 2020) (PRAD](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE150692)) Download
+
+```{r}
+gse150692.obj <- readRDS("./sc_rds_files/gse150692.rds")
+```
+
+### Running Empty Drops
+
+```{r}
+object <- gse150692.obj
+```
+
+
+
+```{r}
+empty_results <- emptyDrops_wrapr(gse150692.obj@assays$RNA@layers$counts, 
+                                  object,
+                                  lower = 100, 
+                                  niters = 10000)
+```
+
+### Checking Sparsity
+```{r}
+sum(object@assays$RNA@layers$counts)
+```
+
+
+```{r}
+#Calculate Matrix Sparsity
+total_element_wise_counts <- (sum(object@assays$RNA@layers$counts) > 0)
+print(total_element_wise_counts)
+dims <- (nrow(object) * ncol(object))
+sparsity <- 1 - (total_element_wise_counts / dims)
+
+cat("Matrix sparsity:", round(sparsity * 100, 1), "%\n")
+
+#UMI distribution - bimodal obviously
+umi_counts <- colSums(object@assays$RNA@layers$counts)
+cat("Median UMI per droplet:", median(umi_counts), "\n")
+cat("Droplets with >500 UMI:", sum(umi_counts > 500) , 
+    "(likely cells, will be validated by EmptyDrops)\n")
+```
+
+```{r}
+object@assays$RNA@cells
+```
+
+```{r}
+length(colnames(object))
+length(rownames(object@meta.data))
+identical(colnames(object), rownames(object@meta.data))
+setequal(colnames(object), rownames(object@meta.data))
+
+
+length(colnames(object[["RNA"]]))
+nrow(object@meta.data)
+
+identical(colnames(object[["RNA"]]), rownames(object@meta.data))
+```
+
+```{r}
+colnames(object[["RNA"]])[1:10]
+rownames(object@meta.data)[1:10]
+```
+
+### Checking Ambient RNA
+
+```{r}
+#Prepare SoupX channel
+#tod (table of droplets) = raw counts from ALL droplets
+#toc (table of cells) = filtered counts from validation cells only
+sc <- SoupChannel(tod = object@assays$RNA$counts, 
+                  toc = empty_results)
+rownames(sc$metaData) <- colnames(object)
+```
+
+```{r}
+DefaultAssay(object) <- "RNA"
+#basic dimension reductions not set in stone because these are important
+#For cluster annotation
+object <- NormalizeData(object, verbose=F)
+object <- FindVariableFeatures(object, nfeatures = 5000, verbose=F)
+object <- ScaleData(object, verbose = FALSE)
+object <- RunPCA(object, npcs=15, verbose = FALSE)
+object <- FindNeighbors(object, dims = 1:15, verbose=F)
+object <- FindClusters(object, resolution = 0.8, verbose =F)
+object <- RunUMAP(object, dims = 1:15, verbose=F)
+
+
+
+barcode_cluster <- setNames(as.character(object$seurat_clusters), colnames(object))
+#setting clusters in the meta-data object
+sc <- setClusters(sc, barcode_cluster)
+```
+
+```{r}
+
+sc <- tryCatch({
+  autoEstCont(sc, verbose = FALSE)
+}, error = function(e) {
+  cat("Note: autoEstCont failed\n")
+  sc$fit$rho <- NULL
+  return(sc)
+})
+
+contamination_fraction <- sc$fit$rho
+
+# Check contamination level
+cat("Contamination fraction:", 
+    ifelse(is.null(contamination_fraction), "NULL (very clean sample)", 
+           paste0(round(contamination_fraction * 100, 2), "%")), "\n")
+
+# Decision: Skip or correct based on contamination level
+if (is.null(contamination_fraction) || contamination_fraction < 0.05) {
+  cat("→ Contamination is NULL or <5% - skipping SoupX correction\n")
+  cat("   Your sample is clean! Proceeding with original counts.\n")
+} else {
+  cat("→ Contamination is", round(contamination_fraction * 100, 2), "% (≥5%)\n")
+  cat("   Applying SoupX correction...\n")
+  
+  # Apply correction
+  suppressWarnings({
+    corrected_counts <- adjustCounts(sc)
+  })
+  object <- SetAssayData(object, layer = "counts", new.data = corrected_counts)
+  cat("   ✓ SoupX correction applied\n")
+}
+```
