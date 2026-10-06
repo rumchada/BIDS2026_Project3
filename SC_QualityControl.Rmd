@@ -35,7 +35,7 @@ nCount: total sum of all UMI counts detected across all genes within that cell
 
 # QC Strategy
 
-Do the datasets even NEED QC?
+### Do the datasets even NEED QC?
 
 For example **GSE141445'**s paper stated that "After standard data processing and quality control procedures (Methods), we obtained transcriptomic profiles for 36,424 cells (Extended Data Fig. 1a)". This portion of cells was uploaded to GEO Accession website so therefore it's unnecessary for further QC. Downsampling further on this dataset could either dampen relevant signals or cut out weaker signals entirely. –\> No
 
@@ -43,7 +43,7 @@ For example **GSE141445'**s paper stated that "After standard data processing an
 
 **GSE150692** Although the files say they are clean, it's not clear in the data availability section of the paper. It's work checking –\> **Yes**
 
-**GSE181294:** Data availability states that "processed data can be accessed from NCBI Gene Expression Omnibus datase" however it's not states that QCed data is available. However it's likely that emptydroplets have been taken care of. –\> Check
+**GSE181294:** Data availability states that "processed data can be accessed from NCBI Gene Expression Omnibus datase" however it's not stated that QCed data is available. However it's likely that emptydroplets have been taken care of. –\> Check
 
 Resort Automatic Strategies first you've completed the manual Find EmptyDroplets (DropletUtils) Find AmbientRNA (SoupX) Find Doublets (DoubletFinder).
 
@@ -350,6 +350,7 @@ object <- gse176031.obj
 ```
 
 ```{r}
+DefaultAssay(gse176031.obj) <- "RNA"
 empty_results <- emptyDrops_wrapr(gse176031.obj@assays$RNA@layers$counts, 
                                   object,
                                   lower = 100, 
@@ -833,11 +834,6 @@ nrow(object@meta.data)
 identical(colnames(object[["RNA"]]), rownames(object@meta.data))
 ```
 
-```{r}
-colnames(object[["RNA"]])[1:10]
-rownames(object@meta.data)[1:10]
-```
-
 ### Checking Ambient RNA
 
 ```{r}
@@ -901,3 +897,259 @@ if (is.null(contamination_fraction) || contamination_fraction < 0.05) {
   cat("   ✓ SoupX correction applied\n")
 }
 ```
+
+### Checking Doublets
+
+```{r}
+object <- JoinLayers(object)
+
+sce <- as.SingleCellExperiment(object)
+
+set.seed(42)
+suppressWarnings({
+  sce <- scDblFinder(sce, 
+                     dbr = NULL, 
+                     verbose = FALSE)
+})
+
+# Extract results
+object$doublet_class <- ifelse(sce$scDblFinder.class == "doublet", "Doublet", "Singlet")
+object$doublet_score <- sce$scDblFinder.score
+
+#Tracking cells before doublet removal for QC summary
+n_doublets <- sum(object$doublet_class == "Doublet")
+doublet_rate <- n_doublets / ncol(object) * 100
+cat("Doublets:", n_doublets, "(", round(doublet_rate, 1), "%)\n")
+
+cells_before_doublet_removal <- ncol(object)
+cat("Cells before doouble removal:", cells_before_doublet_removal)
+
+p3 <- DimPlot(
+  object,
+  reduction = "umap",
+  group.by = "doublet_class",
+  cols = c("Singlet" = "#90E0EF", "Doublet" = "#EF233C"),
+  pt.size = 1
+) +
+  labs(title = paste0("Doublet Detection (", round(doublet_rate, 1), "%)")) +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+p3
+```
+
+### Manual Review
+
+```{r}
+# before applying empty droplet
+QC_testing <- gse150692.obj
+
+#After applying empty droplets
+#QC_testing <- object
+
+
+# Calculate QC metrics
+
+#percentage of mitochondrial RNA counts
+#calculate percentageof mitochondrial RNA per barcode
+QC_testing[["percent.mt"]] <- PercentageFeatureSet(QC_testing, pattern = "^MT-")
+#percentage of ribosomal RNA counts
+QC_testing[["percent.ribo"]] <- PercentageFeatureSet(QC_testing, pattern = "^RP[SL]")
+#What is the complexity of each cell library
+QC_testing$log10GenesPerUMI <- log10(QC_testing$nFeature_RNA) / log10(QC_testing$nCount_RNA)
+```
+
+```{r}
+# Summary statistics to guide threshold setting
+cat("\nQC Metric Distributions:\n")
+cat("nCount_RNA (UMI):\n")
+cat("  Median:", median(QC_testing$nCount_RNA), 
+    "| Q1-Q3:", quantile(QC_testing$nCount_RNA, 0.25), "-", 
+    quantile(QC_testing$nCount_RNA, 0.75), "\n")
+
+cat("nFeature_RNA (genes):\n")
+cat("  Median:", median(QC_testing$nFeature_RNA),
+    "| Q1-Q3:", quantile(QC_testing$nFeature_RNA, 0.25), "-",
+    quantile(QC_testing$nFeature_RNA, 0.75), "\n")
+
+cat("percent.mt:\n")
+cat("  Median:", round(median(QC_testing$percent.mt), 2), "%",
+    "| 95th percentile:", round(quantile(QC_testing$percent.mt, 0.95), 2), "%\n")
+
+cat("percent.ribo:\n")
+cat("  Median:", round(median(QC_testing$percent.ribo), 2), "%\n")
+
+```
+
+```{r}
+Idents(QC_testing) <- "orig.ident"
+
+p4 <- VlnPlot(
+  QC_testing,
+  features =c("nCount_RNA", "nFeature_RNA", "percent.mt", "percent.ribo"),
+  ncol = 4,
+  pt.size = 0.1
+) + theme(plot.title = element_text(face = "bold"))
+p4
+file_1 <-  "./qc_images/gse150692_UMI_Feature_MT_scatters_pre-empty.png"
+gg_patchwork(p4, file_1)
+
+
+
+p5 <- FeatureScatter(QC_testing, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
+  labs(title = "UMI vs Genes Detected")
+
+p6 <- FeatureScatter(QC_testing, feature1 = "nCount_RNA", feature2 = "percent.mt") +
+  labs(title = "UMI vs Mitochondrial %")
+
+p7 <- FeatureScatter(QC_testing, feature1 = "percent.mt", feature2 = "percent.ribo") +
+  labs(title = "Mitochondrial % vs Ribosomal %")
+
+p_scatter <- p5 + p6 + p7
+p_scatter
+
+file_2 <- "./qc_images/gse150692_relation_scatters_pre-empty.png"
+gg_patchwork(p_scatter, file_2)
+```
+
+**What was found ?**
+
+As advertised within the data name these are already QCed by the authors. However it's concernering to see droplets with both low nFeature and nCounts. This could mean either these are dying cells that are only showing mitochondrial transcripts or that they contain cells with total low unique transcript expressions.
+
+### Cell Based Filtering Thresholds
+
+**nfeature:** represents the total number of unique genes detected in each individual cell
+
+**nCount:** total sum of all UMI counts detected across all genes within that cell
+
+```{r}
+# minimal thresholding to these
+
+nfeature_min <- 200
+
+nfeature_max <- 8000
+
+ncount_min <- 1000
+
+ncount_max <- 50000
+
+mt_thresh <- 10
+```
+
+```{r}
+# Visualize thresholds on data
+qc_df <- data.frame(
+  nCount_RNA = QC_testing$nCount_RNA,
+  nFeature_RNA = QC_testing$nFeature_RNA,
+  percent.mt = QC_testing$percent.mt
+)
+
+qc_df$pass_qc <- (
+  qc_df$nCount_RNA >= ncount_min &
+    qc_df$nCount_RNA <= ncount_max &
+    qc_df$nFeature_RNA >= nfeature_min &
+    qc_df$nFeature_RNA <= nfeature_max &
+    qc_df$percent.mt < mt_thresh
+)
+
+p8 <- ggplot(qc_df, aes(x = log10(nCount_RNA + 1), y = log10(nFeature_RNA + 1), 
+                        color = pass_qc)) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_vline(xintercept = log10(c(ncount_min, ncount_max)), 
+             linetype = "dashed", color = "red") +
+  geom_hline(yintercept = log10(c(nfeature_min, nfeature_max)), 
+             linetype = "dashed", color = "red") +
+  scale_color_manual(values = c("TRUE" = "#06D6A0", "FALSE" = "#EF476F")) +
+  
+  labs(
+    title = "Cell Filtering Thresholds",
+    subtitle = paste0(
+      sum(qc_df$pass_qc), " cells pass QC (",
+      round(sum(qc_df$pass_qc) / nrow(qc_df) * 100, 1), "%). ",
+      "If thresholds are applied, ",
+      nrow(qc_df) - sum(qc_df$pass_qc),
+      " cells (",
+      round((1 - sum(qc_df$pass_qc) / nrow(qc_df)) * 100, 1),
+      "%) will be erased."
+    ),
+    
+    x = "log10(UMI + 1)",
+    y = "log10(Genes + 1)",
+    color = "Pass QC"
+  ) +
+  theme_classic()
+
+p8
+threshold_checking <- "qc_images/gse150692_threshold_checking_pre-empty.png"
+```
+
+Due to low Doublet Report (6.9%), and non-return of EmptyDrolets Wrapper function. I've decided that applying QC thresholds to this dataset would be too strict relative to metrics (below), and graphs that suggest that it already has been cleaned by the authors and is even stated within their GEOquery submission that it has been cleaned. Applying manual thresholds runs the risk of cutting relevant signal.
+
+```         
+nCount_RNA (UMI):
+  Median: 6225 | Q1-Q3: 4353 - 9421.25 
+nFeature_RNA (genes):
+  Median: 2488 | Q1-Q3: 1929.5 - 3194.25 
+percent.mt:
+  Median: 5.9 % | 95th percentile: 13.55 %
+percent.ribo:
+  Median: 0 %
+```
+
+```{r}
+saveRDS(gse150692.obj, "./post_qc_rds_files/gse150692.rds")
+```
+
+# GSE181294 ([Chen et. al., 2023](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294))
+
+```{r}
+gse181294.obj <- readRDS("./sc_rds_files/gse181294.rds")
+```
+
+```{r}
+gse181294.obj
+object <- gse181294.obj
+#based on the initial cell counts we will have
+# empty droplets
+```
+### Running Empty Droplets
+
+```{r}
+empty_results <- emptyDrops_wrapr(gse181294.obj@assays$RNA@layers$counts, 
+                                  object,
+                                  lower = 100, 
+                                  niters = 10000)
+```
+
+### Checking Sparsity
+
+```{r}
+#Calculate Matrix Sparsity
+total_element_wise_counts <- (sum(object@assays$RNA@layers$counts) > 0)
+dims <- (nrow(object) * ncol(object))
+sparsity <- 1 - (total_element_wise_counts / dims)
+
+cat("Matrix sparsity:", round(sparsity * 100, 1), "%\n")
+
+#UMI distribution - bimodal obviously
+umi_counts <- colSums(object@assays$RNA@layers$counts)
+cat("Median UMI per droplet:", median(umi_counts), "\n")
+cat("Droplets with >500 UMI:", sum(umi_counts > 500) , 
+    "(likely cells, will be validated by EmptyDrops)\n")
+```
+
+```{r}
+length(colnames(object))
+length(rownames(object@meta.data))
+identical(colnames(object), rownames(object@meta.data))
+setequal(colnames(object), rownames(object@meta.data))
+
+
+length(colnames(object[["RNA"]]))
+nrow(object@meta.data)
+
+identical(colnames(object[["RNA"]]), rownames(object@meta.data))
+```
+```{r}
+
+```
+
