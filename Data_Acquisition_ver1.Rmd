@@ -1100,11 +1100,10 @@ anyDuplicated(colnames(count_matrix_181294))
 any(is.na(colnames(count_matrix_181294)))
 any(colnames(count_matrix_181294) == "")
 ```
+
 ```{r}
 summary(rowSums(count_matrix_181294))
 ```
-
-
 
 ### Creating Seurat Object
 

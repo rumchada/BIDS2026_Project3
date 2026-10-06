@@ -1096,6 +1096,15 @@ percent.ribo:
 ```
 
 ```{r}
+
+post_qc_rds <- "post_qc_rds_files"
+
+if(!dir.exists(post_qc_rds)){
+  dir.create(glue("./{post_qc_rds}"))
+}
+
+
+
 saveRDS(gse150692.obj, "./post_qc_rds_files/gse150692.rds")
 ```
 
@@ -1111,10 +1120,10 @@ object <- gse181294.obj
 #based on the initial cell counts we will have
 # empty droplets
 ```
+
 ```{r}
 summary(rowSums(gse181294.obj@assays$RNA@layers$counts))
 ```
-
 
 ### Running Empty Droplets
 
@@ -1141,7 +1150,9 @@ cat("Median UMI per droplet:", median(umi_counts), "\n")
 cat("Droplets with >500 UMI:", sum(umi_counts > 500) , 
     "(likely cells, will be validated by EmptyDrops)\n")
 ```
+
 Verifiying that all barcodes are
+
 ```{r}
 length(colnames(object))
 length(rownames(object@meta.data))
@@ -1263,10 +1274,8 @@ p3 <- DimPlot(
 
 p3
 ```
-Doublet Detection was 31.6%
-Empty Droplets did not work. Investigate that tomorrow and summarize the
-QC process
 
+Doublet Detection was 31.6% Empty Droplets did not work. Investigate that tomorrow and summarize the QC process
 
 ### Manual Review
 
@@ -1288,10 +1297,6 @@ gse181294.obj[["percent.ribo"]] <- PercentageFeatureSet(gse181294.obj, pattern =
 #What is the complexity of each cell library
 gse181294.obj$log10GenesPerUMI <- log10(gse181294.obj$nFeature_RNA) / log10(gse181294.obj$nCount_RNA)
 ```
-
-
-
-
 
 ```{r}
 # Summary statistics to guide threshold setting
@@ -1412,17 +1417,18 @@ p8 <- ggplot(qc_df, aes(x = log10(nCount_RNA + 1), y = log10(nFeature_RNA + 1),
 p8
 threshold_checking <- "qc_images/gse150692_threshold_checking_pre-empty.png"
 ```
+
 Keeping 90% of the Cells
 
-nfeature_min <- 500
+nfeature_min \<- 500
 
-nfeature_max <- 8000
+nfeature_max \<- 8000
 
-ncount_min <- 1000
+ncount_min \<- 1000
 
-ncount_max <- 70000
+ncount_max \<- 70000
 
-mt_thresh <- 5
+mt_thresh \<- 5
 
 ```{r}
 gse181294.obj <- subset(gse181294.obj,
@@ -1435,4 +1441,3 @@ gse181294.obj <- subset(gse181294.obj,
 
 saveRDS(gse181294.obj, "./post_qc_rds_files/gse181294.rds")
 ```
-
