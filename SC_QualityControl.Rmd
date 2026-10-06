@@ -1111,6 +1111,11 @@ object <- gse181294.obj
 #based on the initial cell counts we will have
 # empty droplets
 ```
+```{r}
+summary(rowSums(gse181294.obj@assays$RNA@layers$counts))
+```
+
+
 ### Running Empty Droplets
 
 ```{r}
@@ -1136,7 +1141,7 @@ cat("Median UMI per droplet:", median(umi_counts), "\n")
 cat("Droplets with >500 UMI:", sum(umi_counts > 500) , 
     "(likely cells, will be validated by EmptyDrops)\n")
 ```
-
+Verifiying that all barcodes are
 ```{r}
 length(colnames(object))
 length(rownames(object@meta.data))
@@ -1149,7 +1154,285 @@ nrow(object@meta.data)
 
 identical(colnames(object[["RNA"]]), rownames(object@meta.data))
 ```
-```{r}
 
+### Setup Channel for SoupX
+
+Preparing Soup Channel
+
+```{r}
+#Prepare SoupX channel
+#tod (table of droplets) = raw counts from ALL droplets
+#toc (table of cells) = filtered counts from validation cells only
+sc <- SoupChannel(tod = object@assays$RNA$counts, 
+                  toc = empty_results)
+rownames(sc$metaData) <- colnames(object)
+```
+
+###Ambient RNA checking
+
+Setting up Temporary Object
+
+```{r}
+#basic dimension reductions not set in stone because these are important
+#For cluster annotation
+object <- NormalizeData(object, verbose=F)
+object <- FindVariableFeatures(object, nfeatures = 5000, verbose=F)
+object <- ScaleData(object, verbose = FALSE)
+object <- RunPCA(object, npcs=15, verbose = FALSE)
+object <- FindNeighbors(object, dims = 1:15, verbose=F)
+object <- FindClusters(object, resolution = 0.8, verbose =F)
+object <- RunUMAP(object, dims = 1:15, verbose=F)
+```
+
+```{r}
+barcode_cluster <- setNames(as.character(object$seurat_clusters), colnames(object))
+#setting clusters in the meta-data object
+sc <- setClusters(sc, barcode_cluster)
+```
+
+###Estimating Contanimation
+
+```{r}
+sc <- tryCatch({
+  autoEstCont(sc, verbose = FALSE)
+}, error = function(e) {
+  cat("Note: autoEstCont failed\n")
+  sc$fit$rho <- NULL
+  return(sc)
+})
+
+contamination_fraction <- sc$fit$rho
+
+# Check contamination level
+cat("Contamination fraction:", 
+    ifelse(is.null(contamination_fraction), "NULL (very clean sample)", 
+           paste0(round(contamination_fraction * 100, 2), "%")), "\n")
+ 
+# Decision: Skip or correct based on contamination level
+if (is.null(contamination_fraction) || contamination_fraction < 0.05) {
+  cat("→ Contamination is NULL or <5% - skipping SoupX correction\n")
+  cat("   Your sample is clean! Proceeding with original counts.\n")
+} else {
+  cat("→ Contamination is", round(contamination_fraction * 100, 2), "% (≥5%)\n")
+  cat("   Applying SoupX correction...\n")
+ 
+  # Apply correction
+  suppressWarnings({
+    corrected_counts <- adjustCounts(sc)
+  })
+  object <- SetAssayData(object, layer = "counts", new.data = corrected_counts)
+  cat("   ✓ SoupX correction applied\n")
+}
+```
+
+### Checking Doublets
+
+```{r}
+object <- JoinLayers(object)
+
+sce <- as.SingleCellExperiment(object)
+
+set.seed(42)
+suppressWarnings({
+  sce <- scDblFinder(sce, 
+                     dbr = NULL, 
+                     verbose = FALSE)
+})
+
+# Extract results
+object$doublet_class <- ifelse(sce$scDblFinder.class == "doublet", "Doublet", "Singlet")
+object$doublet_score <- sce$scDblFinder.score
+
+#Tracking cells before doublet removal for QC summary
+n_doublets <- sum(object$doublet_class == "Doublet")
+doublet_rate <- n_doublets / ncol(object) * 100
+cat("Doublets:", n_doublets, "(", round(doublet_rate, 1), "%)\n")
+
+cells_before_doublet_removal <- ncol(object)
+cat("Cells before doouble removal:", cells_before_doublet_removal)
+
+p3 <- DimPlot(
+  object,
+  reduction = "umap",
+  group.by = "doublet_class",
+  cols = c("Singlet" = "#90E0EF", "Doublet" = "#EF233C"),
+  pt.size = 1
+) +
+  labs(title = paste0("Doublet Detection (", round(doublet_rate, 1), "%)")) +
+  theme(plot.title = element_text(face = "bold", size = 14))
+
+p3
+```
+Doublet Detection was 31.6%
+Empty Droplets did not work. Investigate that tomorrow and summarize the
+QC process
+
+
+### Manual Review
+
+```{r}
+# before applying empty droplet
+#QC_testing <- gse150692.obj
+
+#After applying empty droplets
+QC_testing <- object
+
+
+# Calculate QC metrics
+
+#percentage of mitochondrial RNA counts
+#calculate percentageof mitochondrial RNA per barcode
+gse181294.obj[["percent.mt"]] <- PercentageFeatureSet(gse181294.obj, pattern = "^MT-")
+#percentage of ribosomal RNA counts
+gse181294.obj[["percent.ribo"]] <- PercentageFeatureSet(gse181294.obj, pattern = "^RP[SL]")
+#What is the complexity of each cell library
+gse181294.obj$log10GenesPerUMI <- log10(gse181294.obj$nFeature_RNA) / log10(gse181294.obj$nCount_RNA)
+```
+
+
+
+
+
+```{r}
+# Summary statistics to guide threshold setting
+cat("\nQC Metric Distributions:\n")
+cat("nCount_RNA (UMI):\n")
+cat("  Median:", median(QC_testing$nCount_RNA), 
+    "| Q1-Q3:", quantile(QC_testing$nCount_RNA, 0.25), "-", 
+    quantile(QC_testing$nCount_RNA, 0.75), "\n")
+
+cat("nFeature_RNA (genes):\n")
+cat("  Median:", median(QC_testing$nFeature_RNA),
+    "| Q1-Q3:", quantile(QC_testing$nFeature_RNA, 0.25), "-",
+    quantile(QC_testing$nFeature_RNA, 0.75), "\n")
+
+cat("percent.mt:\n")
+cat("  Median:", round(median(QC_testing$percent.mt), 2), "%",
+    "| 95th percentile:", round(quantile(QC_testing$percent.mt, 0.95), 2), "%\n")
+
+cat("percent.ribo:\n")
+cat("  Median:", round(median(QC_testing$percent.ribo), 2), "%\n")
+
+```
+
+```{r}
+Idents(QC_testing) <- "orig.ident"
+
+p4 <- VlnPlot(
+  QC_testing,
+  features =c("nCount_RNA", "nFeature_RNA", "percent.mt", "percent.ribo"),
+  ncol = 4,
+  pt.size = 0.1
+) + theme(plot.title = element_text(face = "bold"))
+p4
+file_1 <-  "./qc_images/gse150692_UMI_Feature_MT_scatters_pre-empty.png"
+gg_patchwork(p4, file_1)
+
+
+
+p5 <- FeatureScatter(QC_testing, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
+  labs(title = "UMI vs Genes Detected")
+
+p6 <- FeatureScatter(QC_testing, feature1 = "nCount_RNA", feature2 = "percent.mt") +
+  labs(title = "UMI vs Mitochondrial %")
+
+p7 <- FeatureScatter(QC_testing, feature1 = "percent.mt", feature2 = "percent.ribo") +
+  labs(title = "Mitochondrial % vs Ribosomal %")
+
+p_scatter <- p5 + p6 + p7
+p_scatter
+
+file_2 <- "./qc_images/gse150692_relation_scatters_pre-empty.png"
+gg_patchwork(p_scatter, file_2)
+```
+
+### Cell Based Filtering Thresholds
+
+**nfeature:** represents the total number of unique genes detected in each individual cell
+
+**nCount:** total sum of all UMI counts detected across all genes within that cell
+
+```{r}
+# minimal thresholding to these
+
+nfeature_min <- 500
+
+nfeature_max <- 8000
+
+ncount_min <- 1000
+
+ncount_max <- 70000
+
+mt_thresh <- 5
+```
+
+```{r}
+# Visualize thresholds on data
+qc_df <- data.frame(
+  nCount_RNA = QC_testing$nCount_RNA,
+  nFeature_RNA = QC_testing$nFeature_RNA,
+  percent.mt = QC_testing$percent.mt
+)
+
+qc_df$pass_qc <- (
+  qc_df$nCount_RNA >= ncount_min &
+    qc_df$nCount_RNA <= ncount_max &
+    qc_df$nFeature_RNA >= nfeature_min &
+    qc_df$nFeature_RNA <= nfeature_max &
+    qc_df$percent.mt < mt_thresh
+)
+
+p8 <- ggplot(qc_df, aes(x = log10(nCount_RNA + 1), y = log10(nFeature_RNA + 1), 
+                        color = pass_qc)) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_vline(xintercept = log10(c(ncount_min, ncount_max)), 
+             linetype = "dashed", color = "red") +
+  geom_hline(yintercept = log10(c(nfeature_min, nfeature_max)), 
+             linetype = "dashed", color = "red") +
+  scale_color_manual(values = c("TRUE" = "#06D6A0", "FALSE" = "#EF476F")) +
+  
+  labs(
+    title = "Cell Filtering Thresholds",
+    subtitle = paste0(
+      sum(qc_df$pass_qc), " cells pass QC (",
+      round(sum(qc_df$pass_qc) / nrow(qc_df) * 100, 1), "%). ",
+      "If thresholds are applied, ",
+      nrow(qc_df) - sum(qc_df$pass_qc),
+      " cells (",
+      round((1 - sum(qc_df$pass_qc) / nrow(qc_df)) * 100, 1),
+      "%) will be erased."
+    ),
+    
+    x = "log10(UMI + 1)",
+    y = "log10(Genes + 1)",
+    color = "Pass QC"
+  ) +
+  theme_classic()
+
+p8
+threshold_checking <- "qc_images/gse150692_threshold_checking_pre-empty.png"
+```
+Keeping 90% of the Cells
+
+nfeature_min <- 500
+
+nfeature_max <- 8000
+
+ncount_min <- 1000
+
+ncount_max <- 70000
+
+mt_thresh <- 5
+
+```{r}
+gse181294.obj <- subset(gse181294.obj,
+                        subset = nCount_RNA >= ncount_min &
+                          nCount_RNA <= ncount_max &
+                          nFeature_RNA >= nfeature_min &
+                          nFeature_RNA <= nfeature_max &
+                          percent.mt < mt_thresh)
+
+
+saveRDS(gse181294.obj, "./post_qc_rds_files/gse181294.rds")
 ```
 
