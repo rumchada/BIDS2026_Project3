@@ -1103,8 +1103,6 @@ if(!dir.exists(post_qc_rds)){
   dir.create(glue("./{post_qc_rds}"))
 }
 
-
-
 saveRDS(gse150692.obj, "./post_qc_rds_files/gse150692.rds")
 ```
 
