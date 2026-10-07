@@ -144,15 +144,16 @@ scqc_scatters <- function(tmp_object,
 
 scqc_thresholds <- function(tmp_object,
                             dataset_name = "example",
+                            qc_phase = "pre_threshold",
                             nfeature_min = 200,
                             nfeature_max = 7500,
                             ncount_min = 500,
                             mt_thresh = 10){
   
   qc_df <- data.frame(
-    nCount_RNA = QC_testing$nCount_RNA,
-    nFeature_RNA = QC_testing$nFeature_RNA,
-    percent.mt = QC_testing$percent.mt
+    nCount_RNA = tmp_object$nCount_RNA,
+    nFeature_RNA = tmp_object$nFeature_RNA,
+    percent.mt = tmp_object$percent.mt
   )#setting dataframe for qc filters
   
   qc_df$pass_qc <- (
@@ -163,7 +164,7 @@ scqc_thresholds <- function(tmp_object,
       qc_df$percent.mt < mt_thresh
   )# setting boundary filters for qc data
   
-  #Threshol
+  #Threshold
   p8 <- ggplot(qc_df, aes(x = log10(nCount_RNA + 1), y = log10(nFeature_RNA + 1), 
                           color = pass_qc)) +
     geom_point(alpha = 0.5, size = 1) +
@@ -191,7 +192,7 @@ scqc_thresholds <- function(tmp_object,
   
   cat("Visual Credits go Dr. Li Guo of www.ngs101.com")
   
-  threshold_image_path <- glue::glue("qc_images/{dataset_name}_threshold_checking.png")
+  threshold_image_path <- glue::glue("qc_images/{dataset_name}_threshold_checking_{qc_phase}.png")
   
   gg_patchwork(p8, threshold_image_path)
   
