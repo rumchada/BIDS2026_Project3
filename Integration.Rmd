@@ -1,0 +1,27 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(ggplot2)
+library(hdf5r)
+library(harmony)
+#library(BPCells)
+library(SeuratWrappers)
+library(GEOquery)
+```
+
+```{r}
+gse181294.obj <- readRDS("./post_qc_rds_files/gse181294.rds")
+gse150692.obj <- readRDS("./post_qc_rds_files/gse150692.rds")
+gse176031.obj <- readRDS("./post_qc_rds_files/gse176031.rds")
+gse141445.obj <- readRDS("./post_qc_rds_files/gse141445.rds")
+```
+
+```{r}
+sum(nrow(gse181294.obj@meta.data), nrow(gse150692.obj@meta.data), nrow(gse176031.obj@meta.data), nrow(gse141445.obj@meta.data))
+```
+

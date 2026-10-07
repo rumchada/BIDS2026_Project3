@@ -1190,11 +1190,11 @@ QC_testing <- object
 
 #percentage of mitochondrial RNA counts
 #calculate percentageof mitochondrial RNA per barcode
-gse181294.obj[["percent.mt"]] <- PercentageFeatureSet(gse181294.obj, pattern = "^MT-")
+QC_testing[["percent.mt"]] <- PercentageFeatureSet(QC_testing, pattern = "^MT-")
 #percentage of ribosomal RNA counts
-gse181294.obj[["percent.ribo"]] <- PercentageFeatureSet(gse181294.obj, pattern = "^RP[SL]")
+QC_testing[["percent.ribo"]] <- PercentageFeatureSet(QC_testing, pattern = "^RP[SL]")
 #What is the complexity of each cell library
-gse181294.obj$log10GenesPerUMI <- log10(gse181294.obj$nFeature_RNA) / log10(gse181294.obj$nCount_RNA)
+QC_testing$log10GenesPerUMI <- log10(QC_testing$nFeature_RNA) / log10(QC_testing$nCount_RNA)
 ```
 
 ```{r}
@@ -1203,10 +1203,6 @@ qc_phase <- "pre_threshold"
 scqc_scatters <- scqc_scatters(QC_testing, 
                                dataset_name, 
                                qc_phase)
-```
-
-```{r}
-scqc_scatters
 ```
 
 ### Cell Based Filtering Thresholds
@@ -1294,4 +1290,9 @@ scqc_postthreshold_check <-scqc_thresholds(gse181294.obj,
 
 ```{r}
 scqc_scatters
+```
+
+```{r}
+gse181294.obj <- readRDS("./post_qc_rds_files/gse181294.rds")
+gse181294.obj
 ```
