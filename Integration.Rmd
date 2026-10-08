@@ -25,3 +25,41 @@ gse141445.obj <- readRDS("./post_qc_rds_files/gse141445.rds")
 sum(nrow(gse181294.obj@meta.data), nrow(gse150692.obj@meta.data), nrow(gse176031.obj@meta.data), nrow(gse141445.obj@meta.data))
 ```
 
+Meta Data Correction Check list
+
+At minimum I need the following columns: orig.ident: the author geo_acc: the GSEXXXXX number condition: biopsy,healthy,tumor_core,normal_adj
+
+Fixes check list:
+
+**GSE181294**
+
+Current meta data columns:
+
+**orig.ident, gse_acc**
+
+- does not have a condition column
+
+- need to move the sample ID over to a column (sample_ID)
+
+**GSE150692**
+
+orig.ident, gse_acc
+
+- need to add the GSM/Sample ID
+
+- need to add condition column
+
+**GSE176031**
+
+- column geo_source is redundant, delete it
+
+**GSE141445**
+
+- add sample ID GSM number
+
+```{r}
+gse181294.obj@meta.data
+gse150692.obj@meta.data
+gse176031.obj@meta.data
+gse141445.obj@meta.data
+```
