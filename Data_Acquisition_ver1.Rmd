@@ -877,6 +877,7 @@ gse150692.obj
 
 gse150692.obj@meta.data$orig.ident <- "Crowley2020"
 gse150692.obj@meta.data$geo_acc <- "GSE150692"
+gse_150692.obj@meta.data$conditio <- "benign"
 
 rownames(gse150692.obj@meta.data) <- result
 
@@ -961,7 +962,7 @@ meta_181294
 ```{r}
 colnames(meta_181294)
 meta_181294 <- meta_181294 %>% 
-  select(c(title, geo_accession, "condition:ch1", "gleason:ch1")) %>%
+  select(c(title, geo_accession, "age:ch1", "condition:ch1", "gleason:ch1")) %>%
   mutate(`gleason:ch1` = case_when(
                                   "NA" == `gleason:ch1` ~ NA_character_,
                                   str_detect(`gleason:ch1`, "=") ~ gsub("=.*$", "", `gleason:ch1`))) %>%
@@ -973,6 +974,7 @@ meta_181294
 #renaming columns
 colnames(meta_181294)[colnames(meta_181294) == "gleason:ch1"] <- "bGleason"
 colnames(meta_181294)[colnames(meta_181294) == "condition:ch1"] <- "condition"
+colnames(meta_181294)[colnames(meta_181294) == "age:ch1"] <- "Age"
 
 meta_181294
 ```
@@ -985,6 +987,10 @@ replacement <- setNames(condition_label_replacements, condition_markers)
 
 meta_181294 <- meta_181294  %>%
   mutate(condition = replacement[condition])
+```
+
+```{r}
+meta_181294
 ```
 
 ### Reading in Count Matrices for GSE181294
@@ -1129,6 +1135,7 @@ MetaData - ClinicalData Merging
 
 ```{r}
 gse181294.obj <- readRDS("./sc_rds_files/gse181294.rds")
+meta_181294
 ```
 
 ```{r}
@@ -1140,8 +1147,10 @@ cell_names[1:10]
 #seperating the cell_names from the GSMXXXXX sample title
 #sample_title <- sub("\\..*", "", cell_names)
 barcodes <- sub("^[^.]*\\.","", cell_names)
-barcodes[1:10]
+
 sample_title <- str_extract(barcodes, "^[^_]*_") %>% str_remove("_")
+sample_title[1:10]
+
 
 if(!identical(barcodes, rownames(gse181294.obj@meta.data))){ 
   rownames(gse181294.obj@meta.data) <- barcodes 
@@ -1149,7 +1158,14 @@ if(!identical(barcodes, rownames(gse181294.obj@meta.data))){
 
 gse181294.obj@meta.data$title <- sample_title
 
+#joining meta.data with clinical data
 gse181294.obj@meta.data <- left_join(gse181294.obj@meta.data, meta_181294, by = "title")
+```
+
+```{r}
+gse181294.obj@meta.data
+
+gse181294.obj@meta.data %>% filter(title %in% "SCG.PCA21.T.LG")
 ```
 
 ```{r}
