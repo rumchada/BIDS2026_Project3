@@ -63,3 +63,8 @@ gse150692.obj@meta.data
 gse176031.obj@meta.data
 gse141445.obj@meta.data
 ```
+
+```{r}
+unique(gse176031.obj@meta.data$condition)
+unique(gse141445.obj@meta.data$condition)
+```
