@@ -27,13 +27,6 @@ gse141445.obj <- readRDS("./post_qc_rds_files/gse141445.rds")
 sum(nrow(gse181294.obj@meta.data), nrow(gse150692.obj@meta.data), nrow(gse176031.obj@meta.data), nrow(gse141445.obj@meta.data))
 ```
 
-```{r}
-gse181294.obj@meta.data
-gse150692.obj@meta.data
-gse176031.obj@meta.data
-gse141445.obj@meta.data
-```
-
 # Fixing MetaData Mistakes
 
 Meta Data Correction Check list
@@ -57,13 +50,6 @@ orig.ident, gse_acc
 **GSE141445**
 
 - add sample ID GSM number
-
-```{r}
-colnames(gse181294.obj@meta.data)[colnames(gse181294.obj@meta.data) ==  "Geo_accession"] <- "sampleID"
-gse150692.obj@meta.data
-gse176031.obj@meta.data
-gse141445.obj@meta.data
-```
 
 ### GSE181294 does not have the condition column, age or any bGleason columns
 
@@ -152,39 +138,157 @@ saveRDS(gse181294.obj, "./post_qc_rds_files/gse181294.rds")
 # Final MetaData Edits
 
 ```{r}
+sum(rownames(gse181294.obj@meta.data) %in% colnames(gse181294.obj[["RNA"]]))
+```
+
+```{r}
 # Chen2023
-colnames(gse181294.obj@meta.data)[colnames(gse181294.obj@meta.data) ==  "Geo_accession"] <- "sampleID"
+colnames(gse181294.obj@meta.data)[colnames(gse181294.obj@meta.data) ==  "geo_accession"] <- "sampleID"
 rownames(gse181294.obj@meta.data) <- colnames(gse181294.obj[["RNA"]])
 gse181294.obj@meta.data
+
 
 #Crowley2020
 rownames(gse150692.obj@meta.data) <- colnames(gse150692.obj[["RNA"]])
 gse150692.obj@meta.data
 
+
 # Song2021
-colnames(gse176031.obj@meta.data)[colnames(gse176031.obj@meta.data) == "PatientID"] <- "title"
+#trimming redundant columns
+gse176031.obj@meta.data <- gse176031.obj@meta.data %>% select(-c("PatientID", "SampleID", "geo_source", "tissue:ch1", "source_name_ch1"))
+
+#correcting columns
+colnames(gse176031.obj@meta.data)[colnames(gse176031.obj@meta.data) == "sample"] <- "sampleID"
+
+
+
+
 gse176031.obj@meta.data
 
 #Chen2021
 colnames(gse141445.obj@meta.data)[colnames(gse141445.obj@meta.data) == "PatientID"] <- "title"
+colnames(gse141445.obj@meta.data)[colnames(gse141445.obj@meta.data) == "gse_acc"] <- "geo_acc"
 gse141445.obj@meta.data
 ```
 
 ```{r}
-gse181294.obj@meta.data
-gse150692.obj@meta.data
-gse176031.obj@meta.data
-gse141445.obj@meta.data
+sum(rownames(gse181294.obj@meta.data) %in% colnames(gse181294.obj[["RNA"]]))
 ```
-
-I think it's time to move on to the actuall integration and actually do some kind of research.
 
 merge all samples from all GSEs together, then run Harmony once with group.by.vars = c(“GSE_id”, “sample_id”). This corrects for both the study-level and sample-level batch effects at the same time.
 
 I'll need GSE_id and sample_id
 
-Final Integration Time
+com at another impass.
+
+# Finally Integration Time
+
+**Run Normalization**
+
+**Run Variable Features**
+
+Ranks Features by number of dataset they are deemed variable. Because the variance of a genes scales non-linearly with the mean expression of each gene, methods will need to isolate heterogeneity using a normalized or standardized metric. Asking: How much more variable a gene is than expected given it's mean expression
+
+Ways to rank features:
+
+ 1. Dispersion-Based
+
+Dispersion_i = variance_i / mean_i
+
+2.  Variance Stabilization method (local polynomial Regression)
+3.  Pearson Residual Variance
+
+**Select Integration Features:** Ranks features by the number of datasets they are deemed variable. Breaking ties by the median variable features rank across datasets.
+
+```{r}
+library(harmony)
+```
+
+```{r}
+PCa_list <- list(gse181294.obj, gse150692.obj, gse176031.obj, gse141445.obj)
+names(PCa_list) <- c("GSE181294", "GSE150692", "GSE176031", "GSE141445")
+
+#clear individual Seurat objects from active RAM
+rm(gse181294.obj, 
+   gse150692.obj, 
+   gse176031.obj, 
+   gse141445.obj)
+
+#perform normalization on each individually
+#perform scaleData individually
+PCa_list <- lapply(X = PCa_list, FUN = function(x){
+  #Log Normalize
+  x <- NormalizeData(x, 
+                     verbose = FALSE,
+                      normalization.method = "LogNormalize")
+  #Rank Variable Features 
+  x <- FindVariableFeatures(x, verbose = FALSE,
+                            selection.method = "vst",
+                            nfeatures = 10000)
+})
+# Run ScaleData and RunPCA
+features <- SelectIntegrationFeatures(PCa_list)
+PCa_list <- lapply(X = PCa_list, FUN = function(x){
+  x <- ScaleData(x, features = features, verbose = FALSE)
+  x <- RunPCA(x, features = features, verbose = FALSE)
+})
+
+#merge the list of Seurat Object
+PCa_object <- merge(
+  x = PCa_list[[1]],
+  y = PCa_list[-1],
+  add.cell.ids = names(PCa_list),
+  project = "merge_object"
+)
+```
+
+```{r}
+post_qc_rds <- "merged_objects"
+
+if(!dir.exists(post_qc_rds)){
+  dir.create(glue("./{post_qc_rds}"))
+}
+
+saveRDS(PCa_object, "./merged_objects/PCa_merged.rds")
+```
+
+```{r}
+PCa_object@meta.data
+rm(PCa_list)
+```
+
+```{r}
+PCa_object <- readRDS("./merged_objects/PCa_merged.rds")
+```
 
 ```{r}
 
+#RPCA methods: Works better with large datasets (>100,000 cells). Better for large scale studies, similar cell type compositions across samples
+
+#CCA: Not likely a good coice because we need to have the same feature space for each data set. Computational Load will crash both computers
 ```
+
+### Harmony
+
+```{r}
+#Harmony: directly give covariates to batch correct on
+PCa_object <- JoinLayers(PCa_object)
+PCa_object <- RunPCA(PCa_object, npcs = 30, verbose = FALSE)
+
+# Run Harmony (corrects batch effects on PCA embedding)
+PCa_object_int <- RunHarmony(PCa_object, c("geo_acc", "sampleID"))
+rm(PCa_object)
+PCa_object_int <- NormalizeData(PCa_object_int, normalization.method = "LogNormalize")
+PCa_object_int <- FindVariableFeatures(PCa_object_int, nfeatures = 2000, verbose = FALSE)
+PCa_object_int <- ScaleData(PCa_object_int, verbose = FALSE)
+PCa_object_int <- RunPCA(PCa_object_int, npcs = 50, verbose = FALSE)
+PCa_object_int <- RunUMAP(PCa_object_int, dims = 1:30, reduction = "pca", verbose = FALSE)
+PCa_object_int <- FindNeighbors(PCa_object_int, dims = 1:30, verbose = FALSE)
+PCa_object_int <- FindClusters(PCa_object_int, resolution = 0.6, verbose = FALSE)
+
+
+```
+
+RPCA
+
+CCA
