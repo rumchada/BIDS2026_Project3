@@ -755,6 +755,10 @@ gse150692.obj <- readRDS("./sc_rds_files/gse150692.rds")
 ### Running Empty Drops
 
 ```{r}
+gse150692.obj@meta.data
+```
+
+```{r}
 object <- gse150692.obj
 ```
 
@@ -1004,7 +1008,7 @@ gse150692.obj <- readRDS("./post_qc_rds_files/gse150692.rds")
 ```
 
 ```{r}
-gse150692.obj@meta.data$
+gse150692.obj@meta.data
 ```
 
 # GSE181294 ([Chen et. al., 2023](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE181294))

@@ -27,6 +27,15 @@ gse141445.obj <- readRDS("./post_qc_rds_files/gse141445.rds")
 sum(nrow(gse181294.obj@meta.data), nrow(gse150692.obj@meta.data), nrow(gse176031.obj@meta.data), nrow(gse141445.obj@meta.data))
 ```
 
+```{r}
+gse181294.obj@meta.data
+gse150692.obj@meta.data
+gse176031.obj@meta.data
+gse141445.obj@meta.data
+```
+
+# Fixing MetaData Mistakes
+
 Meta Data Correction Check list
 
 At minimum I need the following columns: orig.ident: the author geo_acc: the GSEXXXXX number condition: biopsy,healthy,tumor_core,normal_adj
@@ -50,13 +59,11 @@ orig.ident, gse_acc
 - add sample ID GSM number
 
 ```{r}
-gse181294.obj@meta.data
+colnames(gse181294.obj@meta.data)[colnames(gse181294.obj@meta.data) ==  "Geo_accession"] <- "sampleID"
 gse150692.obj@meta.data
 gse176031.obj@meta.data
 gse141445.obj@meta.data
 ```
-
-# Fixing MetaData Mistakes 
 
 ### GSE181294 does not have the condition column, age or any bGleason columns
 
@@ -142,22 +149,42 @@ gse181294.obj@meta.data <- left_join(gse181294.obj@meta.data, meta_181294, by = 
 saveRDS(gse181294.obj, "./post_qc_rds_files/gse181294.rds")
 ```
 
-**GSE150692**
-
-GSM is available, SampleID is not available, Only condition is available.
+# Final MetaData Edits
 
 ```{r}
-gse150692.obj@meta.data$condition <- "benign"
-```
+# Chen2023
+colnames(gse181294.obj@meta.data)[colnames(gse181294.obj@meta.data) ==  "Geo_accession"] <- "sampleID"
+rownames(gse181294.obj@meta.data) <- colnames(gse181294.obj[["RNA"]])
+gse181294.obj@meta.data
 
-```{r}
+#Crowley2020
+rownames(gse150692.obj@meta.data) <- colnames(gse150692.obj[["RNA"]])
 gse150692.obj@meta.data
+
+# Song2021
+colnames(gse176031.obj@meta.data)[colnames(gse176031.obj@meta.data) == "PatientID"] <- "title"
+gse176031.obj@meta.data
+
+#Chen2021
+colnames(gse141445.obj@meta.data)[colnames(gse141445.obj@meta.data) == "PatientID"] <- "title"
+gse141445.obj@meta.data
 ```
 
-Unfortunately, this is the only clinical variable I could get out of this dataset.
+```{r}
+gse181294.obj@meta.data
+gse150692.obj@meta.data
+gse176031.obj@meta.data
+gse141445.obj@meta.data
+```
 
 I think it's time to move on to the actuall integration and actually do some kind of research.
 
 merge all samples from all GSEs together, then run Harmony once with group.by.vars = c(“GSE_id”, “sample_id”). This corrects for both the study-level and sample-level batch effects at the same time.
 
 I'll need GSE_id and sample_id
+
+Final Integration Time
+
+```{r}
+
+```

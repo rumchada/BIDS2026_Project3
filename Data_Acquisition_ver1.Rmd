@@ -645,11 +645,12 @@ website. BRUH
 
 **Human Samples Available on GEOQuery:**
 
-GSM4556600(MF002) clinical data available, benign tumor
+GSM4556600(MF002) clinical data available, benign tumor, (Age: 63),
+bGleason 3+3=6, pT2 = N0
 
-GSM4556601(MM033), benign tumor
+GSM4556601(MM033), benign tumor, (Age: 68)
 
-GSM4556602(MM037) , benign tumor
+GSM4556602(MM037) , benign tumor, (Age: 70),
 
 **Mouse Samples (GeoQuery MetaData only gives the GSMXXXs for mouse
 Samples):**
@@ -685,6 +686,7 @@ getGEOSuppFiles("GSE150692")
 ```
 
 ```{r}
+#filter for human meta_data and clean the meta_data
 meta_150692
 ```
 
@@ -744,6 +746,19 @@ common_features <- Reduce(intersect, lapply(cnt_mats_150692, function(x) x$X))
 length(common_features)
 ```
 
+```{r}
+sample_info <- tibble(
+  filename = files,
+  sampleID = str_extract(filename, "GSM\\d+"),
+  title = str_extract(filename, "M[MF]\\d+"),
+  Age = c("63","68","70"),
+  bGleason = c("3+3", NA, NA),
+  pT = c("N0", NA, NA)
+) %>% select(-c(filename))
+
+sample_info
+```
+
 ### Fixing Repeated Gene Names in the data (Warning, Very Long Wait)
 
 ```{r}
@@ -787,6 +802,7 @@ dim(count_matrix_150692)
 ```
 
 ```{r}
+#fixes the character
 count_matrix_150692 <- as_tibble(count_matrix_150692) %>% 
                       column_to_rownames("GSM4556600.X") %>%
                       select(-c("GSM4556601.X", "GSM4556602.X"))
@@ -843,7 +859,7 @@ n <- ave( non_unique_barcodes, non_unique_barcodes, FUN = seq_along)
 
 result <- paste0(non_unique_barcodes, ".", n)
 
-colnames(count_matrix_150692) <- result
+colnames(count_matrix_150692) <- paste0(sample_title,".",result)
 ```
 
 ```{r}
@@ -877,14 +893,36 @@ gse150692.obj
 
 gse150692.obj@meta.data$orig.ident <- "Crowley2020"
 gse150692.obj@meta.data$geo_acc <- "GSE150692"
-gse_150692.obj@meta.data$conditio <- "benign"
-
-rownames(gse150692.obj@meta.data) <- result
-
+gse150692.obj@meta.data$condition <- "benign"
 ```
 
 ```{r}
 gse150692.obj@meta.data
+```
+
+```{r}
+gse150692.obj@meta.data
+sample_title <- sub("\\..*", "", rownames(gse150692.obj@meta.data))
+gse150692.obj@meta.data$sampleID <- sample_title
+rownames(gse150692.obj@meta.data) <- result
+
+
+#saveRDS(gse150692.obj, "./sc_rds_files/gse150692.rds")
+```
+
+```{r}
+gse150692.obj@meta.data
+```
+
+```{r}
+gse150692.obj@meta.data <- left_join(gse150692.obj@meta.data, sample_info, by = "sampleID")
+```
+
+```{r}
+gse150692.obj@meta.data
+```
+
+```{r}
 saveRDS(gse150692.obj, "./sc_rds_files/gse150692.rds")
 ```
 
