@@ -1226,7 +1226,7 @@ ncount_min <- 1000
 
 ncount_max <- 70000
 
-mt_thresh <- 5
+mt_thresh <- 0
 
 qc_phase <- "pre_threshold"
 
@@ -1259,8 +1259,7 @@ gse181294.obj <- subset(gse181294.obj,
                         subset = nCount_RNA >= ncount_min &
                           nCount_RNA <= ncount_max &
                           nFeature_RNA >= nfeature_min &
-                          nFeature_RNA <= nfeature_max &
-                          percent.mt < mt_thresh)
+                          nFeature_RNA <= nfeature_max)
 
 
 saveRDS(gse181294.obj, "./post_qc_rds_files/gse181294.rds")

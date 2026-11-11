@@ -24,8 +24,27 @@ gse141445.obj <- readRDS("./post_qc_rds_files/gse141445.rds")
 ```
 
 ```{r}
+gse181294.obj@meta.data
+gse150692.obj@meta.data
+gse176031.obj@meta.data
+gse141445.obj@meta.data
+```
+
+```{r}
 sum(nrow(gse181294.obj@meta.data), nrow(gse150692.obj@meta.data), nrow(gse176031.obj@meta.data), nrow(gse141445.obj@meta.data))
 ```
+
+```{r}
+unique(gse181294.obj@meta.data$title)
+```
+
+**Problem on 11/09/2026:**
+
+Prior to the first Integration run using Harmony, I got an error that indicated that there was an incorrect matrix columns. I sifter through my data tables to make sure that at least all of sample titles were filled. Turns out one was not it was supposed to be.
+
+Somehow the sample HP0(GSM5494346) was transformed into Healthy-PC1 identity and condition column along with all other clinical variables it should have (Age) is gone. Not only that but this change is only isolated to HP0. All other samples are unaffected.
+
+Solution
 
 # Fixing MetaData Mistakes
 
@@ -52,88 +71,6 @@ orig.ident, gse_acc
 - add sample ID GSM number
 
 ### GSE181294 does not have the condition column, age or any bGleason columns
-
-```{r}
-library(GEOquery)
-#enter in GSE141445
-#read in the whole count matrices and meta data
-
-gse_181294 <- getGEO("GSE181294", GSEMatrix = TRUE)
-#divide the ExpressionSet into the expression matrix and meta data
-
-gse_181294 <- gse_181294[[1]]
-
-#expression matrix
-
-expr_181294 <- exprs(gse_181294)
-
-#meta-data
-meta_181294 <- pData(gse_181294)
-
-#showing first five rows of the meta-data and the expression samples
-head(expr_181294, n = 5)
-head(meta_181294, n = 5)
-#download the data into the data directory
-getGEOSuppFiles("GSE181294")
-
-# editing inital  metaData
-colnames(meta_181294)
-meta_181294 <- meta_181294 %>% 
-  select(c(title, geo_accession, "age:ch1", "condition:ch1", "gleason:ch1")) %>%
-  mutate(`gleason:ch1` = case_when(
-    "NA" == `gleason:ch1` ~ NA_character_,
-    str_detect(`gleason:ch1`, "=") ~ gsub("=.*$", "", `gleason:ch1`))) %>%
-  mutate(`gleason:ch1` = trimws(`gleason:ch1`))
-
-#before renaming
-meta_181294
-
-#renaming columns
-colnames(meta_181294)[colnames(meta_181294) == "gleason:ch1"] <- "bGleason"
-colnames(meta_181294)[colnames(meta_181294) == "condition:ch1"] <- "condition"
-colnames(meta_181294)[colnames(meta_181294) == "age:ch1"] <- "Age"
-
-meta_181294
-```
-
-```{r}
-condition_markers <- c(unique(meta_181294$condition))
-condition_label_replacements <- c("healthy", "norm_adj", "tumor_core")
-
-replacement <- setNames(condition_label_replacements, condition_markers)
-
-meta_181294 <- meta_181294  %>%
-  mutate(condition = replacement[condition])
-```
-
-```{r}
-
-#extractig the cell names
-cell_names <-  rownames(gse181294.obj@meta.data)
-cell_names[1:10]
-#seperating the cell_names from the GSMXXXXX sample title
-#sample_title <- sub("\\..*", "", cell_names)
-barcodes <- sub("^[^.]*\\.","", cell_names)
-
-sample_title <- str_extract(barcodes, "^[^_]*_") %>% 
-  str_remove("_") %>%   
-  str_replace_all("\\.", "-")
-
-
-
-if(!identical(barcodes, rownames(gse181294.obj@meta.data))){ 
-  rownames(gse181294.obj@meta.data) <- barcodes 
-}
-
-gse181294.obj@meta.data$title <- sample_title
-gse181294.obj@meta.data
-
-
-#joining meta.data with clinical data
-gse181294.obj@meta.data <- left_join(gse181294.obj@meta.data, meta_181294, by = "title")
-
-saveRDS(gse181294.obj, "./post_qc_rds_files/gse181294.rds")
-```
 
 # Final MetaData Edits
 
@@ -168,6 +105,7 @@ gse176031.obj@meta.data
 #Chen2021
 colnames(gse141445.obj@meta.data)[colnames(gse141445.obj@meta.data) == "PatientID"] <- "title"
 colnames(gse141445.obj@meta.data)[colnames(gse141445.obj@meta.data) == "gse_acc"] <- "geo_acc"
+gse141445.obj@meta.data$sampleID <- "GSM4203181"
 gse141445.obj@meta.data
 ```
 
@@ -191,7 +129,7 @@ Ranks Features by number of dataset they are deemed variable. Because the varian
 
 Ways to rank features:
 
- 1. Dispersion-Based
+1.  Dispersion-Based
 
 Dispersion_i = variance_i / mean_i
 
@@ -221,16 +159,6 @@ PCa_list <- lapply(X = PCa_list, FUN = function(x){
   x <- NormalizeData(x, 
                      verbose = FALSE,
                       normalization.method = "LogNormalize")
-  #Rank Variable Features 
-  x <- FindVariableFeatures(x, verbose = FALSE,
-                            selection.method = "vst",
-                            nfeatures = 10000)
-})
-# Run ScaleData and RunPCA
-features <- SelectIntegrationFeatures(PCa_list)
-PCa_list <- lapply(X = PCa_list, FUN = function(x){
-  x <- ScaleData(x, features = features, verbose = FALSE)
-  x <- RunPCA(x, features = features, verbose = FALSE)
 })
 
 #merge the list of Seurat Object
@@ -240,21 +168,19 @@ PCa_object <- merge(
   add.cell.ids = names(PCa_list),
   project = "merge_object"
 )
+
+
+#Join Layers
+PCa_object <- JoinLayers(PCa_object)
+PCa_object <- FindVariableFeatures(PCa_object, selection.method = "vst", nfeatures = 10000)
+
+PCa_object <- ScaleData( PCa_object, features = VariableFeatures(PCa_object))
+PCa_object <- RunPCA(PCa_object, npcs = 20, verbose = FALSE)
+
 ```
 
 ```{r}
-post_qc_rds <- "merged_objects"
-
-if(!dir.exists(post_qc_rds)){
-  dir.create(glue("./{post_qc_rds}"))
-}
-
-saveRDS(PCa_object, "./merged_objects/PCa_merged.rds")
-```
-
-```{r}
-PCa_object@meta.data
-rm(PCa_list)
+PCa_object
 ```
 
 ```{r}
@@ -271,16 +197,35 @@ PCa_object <- readRDS("./merged_objects/PCa_merged.rds")
 ### Harmony
 
 ```{r}
-#Harmony: directly give covariates to batch correct on
-PCa_object <- JoinLayers(PCa_object)
-PCa_object <- RunPCA(PCa_object, npcs = 30, verbose = FALSE)
+wrong_meta <- PCa_object@meta.data %>% filter(sampleID %in% NA)
+unique(wrong_meta$orig.ident)
+```
+
+```{r}
+dim(PCa_object@assays$RNA$data)
+dim(PCa_object@meta.data)
+dim(PCa_object@reductions$pca@cell.embeddings)
+sum(is.na(PCa_object$orig.ident))
+colSums(
+  is.na(PCa_object@meta.data[
+    , c("geo_acc", "sampleID", "title"), drop = FALSE
+  ])
+)
+```
+
+```{r}
+#Harmony: directly give covariates to batch correct on th covariates using the PCA embeddings.
 
 # Run Harmony (corrects batch effects on PCA embedding)
-PCa_object_int <- RunHarmony(PCa_object, c("geo_acc", "sampleID"))
+PCa_object_int <- RunHarmony(PCa_object, c("geo_acc", "sampleID", "title"))
 rm(PCa_object)
+
 PCa_object_int <- NormalizeData(PCa_object_int, normalization.method = "LogNormalize")
+
 PCa_object_int <- FindVariableFeatures(PCa_object_int, nfeatures = 2000, verbose = FALSE)
+
 PCa_object_int <- ScaleData(PCa_object_int, verbose = FALSE)
+
 PCa_object_int <- RunPCA(PCa_object_int, npcs = 50, verbose = FALSE)
 PCa_object_int <- RunUMAP(PCa_object_int, dims = 1:30, reduction = "pca", verbose = FALSE)
 PCa_object_int <- FindNeighbors(PCa_object_int, dims = 1:30, verbose = FALSE)
@@ -288,6 +233,26 @@ PCa_object_int <- FindClusters(PCa_object_int, resolution = 0.6, verbose = FALSE
 
 
 ```
+
+```{r}
+PCa_object_int@meta.data$
+```
+
+```{r}
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "orig.ident")
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "condition")
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "title")
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "geo_acc")
+
+```
+
+```{r}
+
+```
+
+harmony Integration Notes
+
+Need to check if condition labels match the authors posted notes
 
 RPCA
 
