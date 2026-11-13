@@ -12,6 +12,12 @@ library(harmony)
 #library(BPCells)
 library(SeuratWrappers)
 library(GEOquery)
+library(future)
+library(presto)
+library(patchwork)
+
+library(FNN)
+options(future.globals.maxSize = 20 * 1024^3)
 ```
 
 # Loading Post QC Data
@@ -70,7 +76,7 @@ orig.ident, gse_acc
 
 - add sample ID GSM number
 
-### GSE181294 does not have the condition column, age or any bGleason columns
+**GSE181294** does not have the condition column, age or any bGleason columns
 
 # Final MetaData Edits
 
@@ -81,6 +87,7 @@ sum(rownames(gse181294.obj@meta.data) %in% colnames(gse181294.obj[["RNA"]]))
 ```{r}
 # Chen2023
 colnames(gse181294.obj@meta.data)[colnames(gse181294.obj@meta.data) ==  "geo_accession"] <- "sampleID"
+gse181294.obj@meta.data$orig.ident <- "Hirz2023"
 rownames(gse181294.obj@meta.data) <- colnames(gse181294.obj[["RNA"]])
 gse181294.obj@meta.data
 
@@ -138,6 +145,8 @@ Dispersion_i = variance_i / mean_i
 
 **Select Integration Features:** Ranks features by the number of datasets they are deemed variable. Breaking ties by the median variable features rank across datasets.
 
+### Integration Prep
+
 ```{r}
 library(harmony)
 ```
@@ -152,108 +161,255 @@ rm(gse181294.obj,
    gse176031.obj, 
    gse141445.obj)
 
-#perform normalization on each individually
-#perform scaleData individually
-PCa_list <- lapply(X = PCa_list, FUN = function(x){
-  #Log Normalize
-  x <- NormalizeData(x, 
-                     verbose = FALSE,
-                      normalization.method = "LogNormalize")
-})
-
 #merge the list of Seurat Object
-PCa_object <- merge(
+PCa_merge <- merge(
   x = PCa_list[[1]],
   y = PCa_list[-1],
   add.cell.ids = names(PCa_list),
   project = "merge_object"
 )
 
+#THis part is necessary for CCA integration
 
-#Join Layers
-PCa_object <- JoinLayers(PCa_object)
-PCa_object <- FindVariableFeatures(PCa_object, selection.method = "vst", nfeatures = 10000)
+#First
+PCa_merge  <- NormalizeData(PCa_merge , verbose = FALSE)
+PCa_merge <- FindVariableFeatures(PCa_merge, nfeatures = 10000, verbose = FALSE)
+PCa_merge <- ScaleData(PCa_merge, verbose = FALSE)
+PCa_merge <- RunPCA(PCa_merge, npcs = 30, verbose = FALSE)
 
-PCa_object <- ScaleData( PCa_object, features = VariableFeatures(PCa_object))
-PCa_object <- RunPCA(PCa_object, npcs = 20, verbose = FALSE)
 
+
+#Memory Load: PCa_object memory load: 5.1 GB
 ```
 
 ```{r}
-PCa_object
+#I am not running this top portion again lol
+saveRDS(PCa_merge, "./merged_objects/PCa_merged.rds")
 ```
 
-```{r}
-PCa_object <- readRDS("./merged_objects/PCa_merged.rds")
-```
+Ram Load after Running JoinLayers + HVG \_ Scaledata + RunPCA –\> 16.7GB
 
 ```{r}
-
-#RPCA methods: Works better with large datasets (>100,000 cells). Better for large scale studies, similar cell type compositions across samples
-
-#CCA: Not likely a good coice because we need to have the same feature space for each data set. Computational Load will crash both computers
+PCa_merge <- readRDS("./merged_objects/PCa_merged.rds")
 ```
 
 ### Harmony
 
 ```{r}
-wrong_meta <- PCa_object@meta.data %>% filter(sampleID %in% NA)
-unique(wrong_meta$orig.ident)
+rm(PCa_list)
+#Join Layers
+PCa_object_harmony <- JoinLayers(PCa_merge)
+
+rm(PCa_merge)
+PCa_object_harmony <- RunPCA(PCa_object_harmony, npcs = 20, verbose = FALSE)
+#RPCA methods: Works better with large datasets (>100,000 cells). Better for large scale studies, similar cell type compositions across samples
+
+#CCA: Not likely a good coice because we need to have the same feature space for each data set. Computational Load will crash both computers
 ```
 
 ```{r}
-dim(PCa_object@assays$RNA$data)
-dim(PCa_object@meta.data)
-dim(PCa_object@reductions$pca@cell.embeddings)
-sum(is.na(PCa_object$orig.ident))
+dim(PCa_object_harmony@assays$RNA$data)
+dim(PCa_object_harmony@meta.data)
+dim(PCa_object_harmony@reductions$pca@cell.embeddings)
+sum(is.na(PCa_object_harmony$orig.ident))
 colSums(
-  is.na(PCa_object@meta.data[
+  is.na(PCa_object_harmony@meta.data[
     , c("geo_acc", "sampleID", "title"), drop = FALSE
   ])
 )
 ```
 
 ```{r}
+rm(PCa_merge)
 #Harmony: directly give covariates to batch correct on th covariates using the PCA embeddings.
 
 # Run Harmony (corrects batch effects on PCA embedding)
-PCa_object_int <- RunHarmony(PCa_object, c("geo_acc", "sampleID", "title"))
-rm(PCa_object)
+PCa_object_harmony_int <- RunHarmony(PCa_object_harmony, c("geo_acc", "sampleID", "title"))
+rm(PCa_object_harmony)
 
-PCa_object_int <- NormalizeData(PCa_object_int, normalization.method = "LogNormalize")
 
-PCa_object_int <- FindVariableFeatures(PCa_object_int, nfeatures = 2000, verbose = FALSE)
+PCa_object_harmony_int <- FindNeighbors(PCa_object_harmony_int, dims = 1:20, reduction = "harmony", verbose = FALSE)
 
-PCa_object_int <- ScaleData(PCa_object_int, verbose = FALSE)
+resolutions <- c(0.6, 0.8, 1)
+for(res in resolutions){
+  PCa_object_harmony_int <- FindClusters(PCa_object_harmony_int, 
+                                   resolution = res,
+                                   verbose = FALSE)
+}
 
-PCa_object_int <- RunPCA(PCa_object_int, npcs = 50, verbose = FALSE)
-PCa_object_int <- RunUMAP(PCa_object_int, dims = 1:30, reduction = "pca", verbose = FALSE)
-PCa_object_int <- FindNeighbors(PCa_object_int, dims = 1:30, verbose = FALSE)
-PCa_object_int <- FindClusters(PCa_object_int, resolution = 0.6, verbose = FALSE)
+PCa_object_harmony_int <- RunUMAP(PCa_object_harmony_int, dims = 1:20, reduction = "harmony", reduction.name = "umap.harmony", verbose = FALSE)
 
+
+#Integrated with Harmony:
+#Ending RAM object Load: ~8.0 GB
+```
+
+```{r}
+saveRDS(PCa_object_harmony_int, "./merged_sc_objects/harmony_int.rds")
+```
+
+```{r}
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "orig.ident", raster = TRUE)
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "condition", raster = TRUE)
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "title", raster = TRUE)
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "geo_acc", raster =TRUE)
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony", group.by = "seurat_clusters")
+```
+
+Results Clearly a disaster of integration. From the UMAP alone we can see that datasets are seperated in UMAP space. However there are some intermingles between Hirz and and Chen 2021. the goal of integration is have a smooth cluster of all datasets that mix between different cell types. What we are seeing here is no biological variation but conditional variation and complete dataser seperation
+
+### CCA (Seuratv5)
+
+```{r}
+PCa_merge <- readRDS("./merged_objects/PCa_merged.rds")
+```
+
+```{r}
+#CCA requires that the layers are seperated with HVGs and ScaleData input
+PCa_object_int <- IntegrateLayers(
+  object = PCa_merge,
+  method = CCAIntegration,
+  orig.reduction = "pca",
+  new.reduction = "integrated.cca",
+  dims = 1:30,
+  verbose = FALSE)
+
+
+PCa_object_int <- JoinLayers(PCa_object_int)
+
+
+PCa_object_int <- FindNeighbors(PCa_object_int, reduction = "integrated.cca", dims = 1:30, verbose = FALSE)
+
+resolutions <- c(0.6, 0.8, 1)
+for(res in resolutions){
+  PCa_object_int <- FindClusters(PCa_object_int, 
+                                 resolution = res,
+                                 verbose = FALSE)
+}
+
+PCa_object_int <- RunUMAP(PCa_object_int, dims = 1:30, reduction = "integrated.cca", verbose = FALSE)
+
+
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "orig.ident", raster = TRUE)
+
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "condition", raster = TRUE)
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "title", raster = TRUE)
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "geo_acc", raster =TRUE)
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.6")
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.8")
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.1")
+
+
+saveRDS(PCa_object_int, "./merged_sc_objects/seurat_cca_int_attempt2.rds")
+```
+
+```{r}
 
 ```
 
 ```{r}
-PCa_object_int@meta.data$
+#CCA_Attempt1 <- readRDS("./merged_sc_objects/seurat_cca_int_attempt1.rds")
+# Input Seperate Layers into the
 ```
 
 ```{r}
-DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "orig.ident")
-DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "condition")
-DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "title")
-DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "geo_acc")
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "orig.ident", raster = TRUE)
 
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "condition", raster = TRUE)
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "title", raster = TRUE)
+DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "geo_acc", raster =TRUE)
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.6")
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.8")
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.1")
 ```
 
 ```{r}
-
+saveRDS(PCa_object_int, "./merged_sc_objects/seurat_cca_int_attempt2.rds")
 ```
 
-harmony Integration Notes
+Next Tasks:
 
-Need to check if condition labels match the authors posted notes
+Rerun Harmony Attempt 1 with the correct reductions UMAP(reduction = harmony)
 
-RPCA
+Rerun Seurat v5 CCA with the clean pipeline
 
-CCA
+# Measuring the Quality of Sample Mixing
+
+Mixing Score
+
+```{r}
+harmony_attempt1 <- readRDS("./merged_sc_objects/harmony_int.rds")
+```
+
+```{r}
+cca_attempt1 <- readRDS("./merged_sc_objects/seurat_cca_int_attempt2.rds")
+```
+
+```{r}
+calc_mixing_metric <- function(object, 
+                               group_id = "geo_acc", 
+                               reduction = "umap", 
+                               k = 50){
+  #Pull cell embeddings
+  embedding <- Seurat::Embeddings(object, reduction  = reduction)
+  
+  #KNN Test
+  nn_result <- FNN::get.knn(embedding[, 1:2], k = k)
+  
+  #Calculate diversity of samples within the neighboorhood
+  group_labels <- object@meta.da[[group_by]]
+  mixing_scores <- sapply(1:nrow(nn_result$nn.index), function(i){
+    neighbors <- nn_result$nn.index[i, ]
+    neighbor_groups <- group_labels[neighbors]
+    props <- table(neighbor_groups) / length(neighbor_groups)
+    #Inverse Simpson's Index
+    1 / sum(props^2)
+  })
+  return(mean(mixing_scores))
+}
+```
+
+```{r}
+args_list <- list(
+  "Harmony" = list(object = harmony_attempt1, reduction = "umap.harmony", k = 20),
+  "CCA" = list(object = cca_attempt1, reduction = "umap")
+)
+
+mixing_results <- data.frame(
+  method = names(args_list),
+  
+  mixing_score = sapply(args_list, function(x){
+    calc_mixing_metric(x$object, group_by = "geo_acc", reduction = x$reduction, k = x$k)
+  }),
+  
+  n_clusters_0.6 = sapply(args_list, function(x){
+    length(unique(x$object$RNA_snn_res.0.6))
+    }),
+  
+  n_clusters_0.8 = sapply(args_list, function(x){
+    length(unique(x$object$RNA_snn_res.0.8))
+  }),
+  
+  n_clusters_1.0 = sapply(args_list, function(x){
+    length(unique(x$object$RNA_snn_res.1))
+  })
+  
+)
+mixing_results
+```
+
+```{r}
+p_mixing <- ggplot(mixing_results, aes(x = reorder(method, -mixing_score), y = mixing_score, fill = method)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(mixing_score, 2)), vjust = -0.5) +
+  labs(title = "Integration Method Comparison: Sample Mixing",
+       subtitle = "Higher score = better integration (samples mix within cell types)",
+       x = "Integration Method",
+       y = "Mixing Score (Local Inverse Simpson's Index)") +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Set2")
+```
+
+```{r}
+length(unique(harmony_attempt1$RNA_snn_res.0.6))
+```
