@@ -338,11 +338,16 @@ Rerun Seurat v5 CCA with the clean pipeline
 Mixing Score
 
 ```{r}
-harmony_attempt1 <- readRDS("./merged_sc_objects/harmony_int.rds")
+harmony_attempt2 <- readRDS("./merged_sc_objects/harmony_int_attempt2.rds")
 ```
 
 ```{r}
-cca_attempt1 <- readRDS("./merged_sc_objects/seurat_cca_int_attempt2.rds")
+cca_attempt2 <- readRDS("./merged_sc_objects/seurat_cca_int_attempt2.rds")
+```
+
+```{r}
+harmony_attempt2
+cca_attempt2
 ```
 
 ```{r}
@@ -357,7 +362,7 @@ calc_mixing_metric <- function(object,
   nn_result <- FNN::get.knn(embedding[, 1:2], k = k)
   
   #Calculate diversity of samples within the neighboorhood
-  group_labels <- object@meta.da[[group_by]]
+  group_labels <- object@meta.data[[group_id]]
   mixing_scores <- sapply(1:nrow(nn_result$nn.index), function(i){
     neighbors <- nn_result$nn.index[i, ]
     neighbor_groups <- group_labels[neighbors]
@@ -371,15 +376,15 @@ calc_mixing_metric <- function(object,
 
 ```{r}
 args_list <- list(
-  "Harmony" = list(object = harmony_attempt1, reduction = "umap.harmony", k = 20),
-  "CCA" = list(object = cca_attempt1, reduction = "umap")
+  "Harmony" = list(object = harmony_attempt2, reduction = "umap.harmony", k = 20),
+  "CCA" = list(object = cca_attempt2, reduction = "umap")
 )
 
 mixing_results <- data.frame(
   method = names(args_list),
   
   mixing_score = sapply(args_list, function(x){
-    calc_mixing_metric(x$object, group_by = "geo_acc", reduction = x$reduction, k = x$k)
+    calc_mixing_metric(x$object, group_id = "geo_acc", reduction = x$reduction, k = x$k)
   }),
   
   n_clusters_0.6 = sapply(args_list, function(x){
@@ -408,6 +413,10 @@ p_mixing <- ggplot(mixing_results, aes(x = reorder(method, -mixing_score), y = m
        y = "Mixing Score (Local Inverse Simpson's Index)") +
   theme(legend.position = "none") +
   scale_fill_brewer(palette = "Set2")
+```
+
+```{r}
+p_mixing
 ```
 
 ```{r}
