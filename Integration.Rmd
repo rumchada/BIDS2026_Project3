@@ -224,7 +224,9 @@ rm(PCa_merge)
 #Harmony: directly give covariates to batch correct on th covariates using the PCA embeddings.
 
 # Run Harmony (corrects batch effects on PCA embedding)
-PCa_object_harmony_int <- RunHarmony(PCa_object_harmony, c("geo_acc", "sampleID", "title"))
+#PCa_object_harmony_int <- RunHarmony(PCa_object_harmony, c("geo_acc", "sampleID", "title"))
+
+PCa_object_harmony_int <- RunHarmony(PCa_object_harmony, c("geo_acc", "sampleID"))
 rm(PCa_object_harmony)
 
 
@@ -245,7 +247,11 @@ PCa_object_harmony_int <- RunUMAP(PCa_object_harmony_int, dims = 1:20, reduction
 ```
 
 ```{r}
-saveRDS(PCa_object_harmony_int, "./merged_sc_objects/harmony_int.rds")
+saveRDS(PCa_object_harmony_int, "./merged_sc_objects/harmony_int_no_patient_correction.rds")
+```
+
+```{r}
+harmony_attempt2$
 ```
 
 ```{r}
@@ -253,7 +259,9 @@ DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "orig.id
 DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "condition", raster = TRUE)
 DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "title", raster = TRUE)
 DimPlot(PCa_object_harmony_int, reduction = "umap.harmony" ,group.by  = "geo_acc", raster =TRUE)
-DimPlot(PCa_object_harmony_int, reduction = "umap.harmony", group.by = "seurat_clusters")
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony", group.by = "RNA_snn_res.0.6", raster = TRUE)
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony", group.by = "RNA_snn_res.0.8", raster = TRUE)
+DimPlot(PCa_object_harmony_int, reduction = "umap.harmony", group.by = "RNA_snn_res.1", raster = TRUE)
 ```
 
 Results Clearly a disaster of integration. From the UMAP alone we can see that datasets are seperated in UMAP space. However there are some intermingles between Hirz and and Chen 2021. the goal of integration is have a smooth cluster of all datasets that mix between different cell types. What we are seeing here is no biological variation but conditional variation and complete dataser seperation
@@ -318,9 +326,9 @@ DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "orig.ident", raster = T
 DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "condition", raster = TRUE)
 DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "title", raster = TRUE)
 DimPlot(PCa_object_int, reduction = "umap" ,group.by  = "geo_acc", raster =TRUE)
-DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.6")
-DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.8")
-DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.1")
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.6", raster=TRUE)
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.0.8", raster = TRUE)
+DimPlot(PCa_object_int, reduction = "umap", group.by = "RNA_snn_res.1", raster = TRUE)
 ```
 
 ```{r}
@@ -338,7 +346,8 @@ Rerun Seurat v5 CCA with the clean pipeline
 Mixing Score
 
 ```{r}
-harmony_attempt2 <- readRDS("./merged_sc_objects/harmony_int_attempt2.rds")
+#harmony_attempt2 <- readRDS("./merged_sc_objects/harmony_int_attempt2.rds")
+harmony_attempt3 <- readRDS("./merged_sc_objects/harmony_int_no_patient_correction")
 ```
 
 ```{r}
@@ -372,19 +381,51 @@ calc_mixing_metric <- function(object,
   })
   return(mean(mixing_scores))
 }
+
+
+condition_sep <- function(object, reduction){
+  umap_coords <- object[[reduction]]@cell.embeddings[, 1:2]
+  conditions <- object$condition
+  
+  condition_centers <- aggregate(umap_coords, by = list(conditions), FUN = mean)
+  
+  dist_matrix <- dist(condition_centers[, -1])
+  mean_dist <- mean(dist_matrix)
+  
+  return(mean_dist)
+}
+```
+
+```{r}
+table(cca_attempt2$condition)
 ```
 
 ```{r}
 args_list <- list(
-  "Harmony" = list(object = harmony_attempt2, reduction = "umap.harmony", k = 20),
-  "CCA" = list(object = cca_attempt2, reduction = "umap")
+  "Harmony" = list(object = PCa_object_harmony_int, reduction = "umap.harmony", k = 20),
+  "CCA" = list(object = cca_attempt2, reduction = "umap", k = 50)
 )
 
 mixing_results <- data.frame(
   method = names(args_list),
   
-  mixing_score = sapply(args_list, function(x){
-    calc_mixing_metric(x$object, group_id = "geo_acc", reduction = x$reduction, k = x$k)
+  #Inverse Simpson Score: technical batch dataset
+  #Measures the diversity of the clusters via knn
+  invsimp_orig_ident = sapply(args_list, function(x){
+    calc_mixing_metric(x$object, group_id = "orig.ident", reduction = x$reduction, k = x$k)
+  }),
+  
+  invsimp_SampleID = sapply(args_list, function(x){
+    calc_mixing_metric(x$object, group_id = "sampleID", reduction = x$reduction, k = x$k)
+  }),
+  #Inverse Simpson Score: technical batch patientID
+  #Measures the diversity of the cluster via knn
+  invsimp_patientID = sapply(args_list, function(x){
+    calc_mixing_metric(x$object, group_id = "title", reduction = x$reduction, k = x$k)
+  }),
+  
+  condition_sep_score = sapply(args_list, function(x){
+    condition_sep(x$object, x$reduction)
   }),
   
   n_clusters_0.6 = sapply(args_list, function(x){
@@ -404,6 +445,7 @@ mixing_results
 ```
 
 ```{r}
+library(ggrepel)
 p_mixing <- ggplot(mixing_results, aes(x = reorder(method, -mixing_score), y = mixing_score, fill = method)) +
   geom_bar(stat = "identity") +
   geom_text(aes(label = round(mixing_score, 2)), vjust = -0.5) +
@@ -413,12 +455,30 @@ p_mixing <- ggplot(mixing_results, aes(x = reorder(method, -mixing_score), y = m
        y = "Mixing Score (Local Inverse Simpson's Index)") +
   theme(legend.position = "none") +
   scale_fill_brewer(palette = "Set2")
+
+
+p_tradeoff <- ggplot(mixing_results, aes(x = mixing_score, y = condition_sep_score, label = method)) +
+  geom_point(size = 4, aes(color = method)) +
+  geom_text_repel(size = 4, box.padding = 0.5) +
+  labs(title = "Integration Quality: Mixing vs Biological Preservation",
+       subtitle = "Ideal: Upper right (high mixing + preserved biology)",
+       x = "Sample Mixing Score (higher = better integration)",
+       y = "Condition Separation (higher = preserved biology)") +
+  theme(legend.position = "none") +
+  scale_color_brewer(palette = "Set2")
 ```
 
 ```{r}
 p_mixing
+p_tradeoff
 ```
+
+NOtes
 
 ```{r}
 length(unique(harmony_attempt1$RNA_snn_res.0.6))
+```
+
+```{r}
+harmony_attempt2
 ```
